@@ -1,6 +1,6 @@
 {
   "name": "mcp-launch-doctor",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Launch stdio MCP servers the way desktop apps do, measure stdout byte by byte, and get a ready-to-paste config fix.",
   "keywords": [
     "mcp",

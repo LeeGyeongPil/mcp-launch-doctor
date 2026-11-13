@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.2.0 - 2026-11-14
+
+### Added
+
+- `check` now reads the default VS Code user-profile `mcp.json` (macOS `~/Library/Application Support/Code/User/`, Linux `~/.config/Code/User/`, Windows `%APPDATA%\Code\User\`), and `--config` on that file works without `--client`.
+
+### Changed
+
+- A `check` without arguments can find more servers (your global VS Code servers). Pin the result with `--client` or `--config` in CI.
+
 ## 0.1.1 - 2026-11-14
 
 ### Fixed
@@ -21,5 +31,6 @@ First release.
 - Per-client startup limits, retry on timeout to tell `buffering` from `first_run_install`, ready-to-paste fix snippets.
 - `--json` output (`schemaVersion: 1`), `--fail-on`, `--dry-run`, English and Korean output.
 
+[0.2.0]: https://github.com/LeeGyeongPil/mcp-launch-doctor/releases/tag/v0.2.0
 [0.1.1]: https://github.com/LeeGyeongPil/mcp-launch-doctor/releases/tag/v0.1.1
 [0.1.0]: https://github.com/LeeGyeongPil/mcp-launch-doctor/releases/tag/v0.1.0

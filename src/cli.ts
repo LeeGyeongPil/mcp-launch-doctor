@@ -211,7 +211,7 @@ async function cmdRun(values: Values, tail: string[], lang: Lang, failOn: FailOn
   const profiles = pickProfiles(values.env, 'shell');
   const flagMs = pickTimeout(values.timeout);
 
-  const spec: ServerSpec = { client: clientArg, name: runName(command, args), command, args, env: {}, passThrough: [], source: 'command line', unresolved: [] };
+  const spec: ServerSpec = { client: clientArg, name: runName(command, args), command, args, env: {}, passThrough: [], source: 'command line', unresolved: [], argBase: process.cwd() };
   const limit = resolveStartupLimit({ client: clientArg, flagMs, env: process.env });
 
   if (values['dry-run']) {

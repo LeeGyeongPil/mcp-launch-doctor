@@ -2,7 +2,7 @@
 // JSON (mcpServers / VS Code servers) or Codex TOML.
 
 import { accessSync, closeSync, constants, openSync, readSync, realpathSync, statSync } from 'node:fs';
-import { basename, delimiter, dirname, isAbsolute, join } from 'node:path';
+import { basename, delimiter, dirname, isAbsolute, join, resolve } from 'node:path';
 import { stringify as toToml } from 'smol-toml';
 import type { ServerSpec } from './config/parse.js';
 import type { DiagnosisResult, VerdictKind } from './diagnose.js';
@@ -92,7 +92,7 @@ export function buildFixes(result: DiagnosisResult, spec: ServerSpec, ctx: FixCo
       case 'stdout_pollution': {
         // 서버를 고치기 전 임시 방편: wrap 을 앞에 끼워 JSON-RPC 줄만 stdout 으로 내보낸다
         const self = ctx.self ?? SELF;
-        const original = [redactText(spec.command), ...redactArgs(spec.args)];
+        const original = [fixCommand(spec), ...fixArgs(spec)];
         if (isTemporaryPath(self.cliPath)) {
           // npx 캐시에서 도는 중: 이 경로는 곧 지워질 수 있으니 설정에 박지 않고, 버전을 고정한 npx 로 띄운다.
           // 서버가 원래 npx 로 뜨던 항목이면 그 npx(절대 경로일 수도 있다)를 그대로 쓴다 — 앱에서 이미 찾아지는 명령이다
@@ -108,7 +108,7 @@ export function buildFixes(result: DiagnosisResult, spec: ServerSpec, ctx: FixCo
         break;
       }
       case 'npx_prompt_risk':
-        out.push(snippet(f.kind, spec, { args: ['-y', ...redactArgs(spec.args)] }, 'fix.npx_yes', {}));
+        out.push(snippet(f.kind, spec, { args: ['-y', ...fixArgs(spec)] }, 'fix.npx_yes', {}));
         break;
       case 'version_mismatch':
         out.push({ forKind: f.kind, format: 'none', note: 'fix.version', data: { got: f.data.got } });
@@ -129,12 +129,38 @@ export function buildFixes(result: DiagnosisResult, spec: ServerSpec, ctx: FixCo
   return out;
 }
 
+/**
+ * Arguments for a fix snippet. For `run`, a relative argument that names an existing file (relative to the
+ * folder `run` was started in) becomes absolute, so the snippet works when an app starts it from elsewhere.
+ */
+export function fixArgs(spec: ServerSpec): string[] {
+  return redactArgs(spec.argBase ? spec.args.map((arg) => absolutizeExisting(arg, spec.argBase as string)) : spec.args);
+}
+
+/** The command for a fix snippet. A relative path to an existing file (`bin/my-server`) becomes absolute like the args; a bare name stays. */
+export function fixCommand(spec: ServerSpec): string {
+  const cmd = spec.command;
+  const base = spec.argBase;
+  if (!base || !(cmd.includes('/') || cmd.includes('\\'))) return redactText(cmd);
+  return redactText(absolutizeExisting(cmd, base));
+}
+
+function absolutizeExisting(arg: string, base: string): string {
+  if (!arg || arg.startsWith('-') || isAbsolute(arg)) return arg;
+  const abs = resolve(base, arg);
+  try {
+    return statSync(abs).isFile() ? abs : arg;
+  } catch {
+    return arg;
+  }
+}
+
 /** One config entry in the client's own format. Only the keys that change are included. */
 function snippet(kind: VerdictKind, spec: ServerSpec, patch: EntryPatch, note: string, data: Record<string, unknown>): FixSnippet {
   const entry: Record<string, unknown> = {};
   if (spec.client === 'vscode') entry.type = 'stdio';
-  entry.command = patch.command ?? redactText(spec.command);
-  entry.args = patch.args ?? redactArgs(spec.args);
+  entry.command = patch.command ?? fixCommand(spec);
+  entry.args = patch.args ?? fixArgs(spec);
   if (patch.env) entry.env = patch.env;
 
   if (spec.client === 'codex') {

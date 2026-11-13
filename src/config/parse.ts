@@ -20,6 +20,8 @@ export interface ServerSpec {
   /** Codex env_vars: names passed through from the shell environment */
   passThrough: string[];
   cwd?: string;
+  /** folder that relative file arguments of a `run` command line refer to (only set by `run`) */
+  argBase?: string;
   /** Codex startup_timeout_sec converted to ms */
   startupTimeoutMs?: number;
   /** config file (or "command line") */

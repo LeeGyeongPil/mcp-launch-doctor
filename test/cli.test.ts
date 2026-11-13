@@ -130,3 +130,9 @@ test('npx without -y gets a prompt-risk warning (dry check via a missing npx)', 
   assert.ok(kinds.includes('not_found'));
   assert.ok(kinds.includes('npx_prompt_risk'));
 });
+
+test('--version matches package.json', async () => {
+  const { readFileSync } = await import('node:fs');
+  const pkg = JSON.parse(readFileSync(new URL('../../package.json', import.meta.url), 'utf8')) as { version: string };
+  assert.equal((await runCli(['--version'])).stdout.trim(), pkg.version);
+});

@@ -38,8 +38,17 @@ export function candidatePaths(client: ClientName, ctx: LocateContext): ConfigLo
         { client, path: join(cwd, '.cursor', 'mcp.json'), scope: 'project' },
         { client, path: join(home, '.cursor', 'mcp.json'), scope: 'user' },
       ];
-    case 'vscode':
-      return [{ client, path: join(cwd, '.vscode', 'mcp.json'), scope: 'project' }];
+    case 'vscode': {
+      // default user profile only (not Insiders, VSCodium or named profiles)
+      let user: string;
+      if (platform === 'darwin') user = join(home, 'Library', 'Application Support', 'Code', 'User', 'mcp.json');
+      else if (platform === 'win32') user = join(env.APPDATA ?? join(home, 'AppData', 'Roaming'), 'Code', 'User', 'mcp.json');
+      else user = join(home, '.config', 'Code', 'User', 'mcp.json');
+      return [
+        { client, path: join(cwd, '.vscode', 'mcp.json'), scope: 'project' },
+        { client, path: user, scope: 'user' },
+      ];
+    }
     case 'codex':
       return [{ client, path: join(env.CODEX_HOME || join(home, '.codex'), 'config.toml'), scope: 'user' }];
   }
@@ -65,6 +74,6 @@ export function guessClient(path: string): ClientName | undefined {
   if (p.endsWith('claude_desktop_config.json')) return 'claude-desktop';
   if (p.endsWith('.mcp.json') || p.endsWith('.claude.json')) return 'claude-code';
   if (p.includes('/.cursor/')) return 'cursor';
-  if (p.includes('/.vscode/')) return 'vscode';
+  if (p.includes('/.vscode/') || p.endsWith('/code/user/mcp.json')) return 'vscode';
   return undefined;
 }

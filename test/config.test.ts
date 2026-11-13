@@ -107,7 +107,13 @@ test('config locations per client', () => {
   assert.deepEqual(candidatePaths('claude-desktop', lctx).map((c) => c.path), ['/home/u/.config/Claude/claude_desktop_config.json']);
   assert.deepEqual(candidatePaths('claude-desktop', { ...lctx, platform: 'darwin' }).map((c) => c.path), ['/home/u/Library/Application Support/Claude/claude_desktop_config.json']);
   assert.deepEqual(candidatePaths('claude-code', lctx).map((c) => c.path), ['/proj/.mcp.json', '/home/u/.claude.json']);
-  assert.deepEqual(candidatePaths('vscode', lctx).map((c) => c.path), ['/proj/.vscode/mcp.json']);
+  assert.deepEqual(candidatePaths('vscode', lctx).map((c) => c.path), ['/proj/.vscode/mcp.json', '/home/u/.config/Code/User/mcp.json']);
+  assert.deepEqual(candidatePaths('vscode', { ...lctx, platform: 'darwin' }).map((c) => c.path), ['/proj/.vscode/mcp.json', '/home/u/Library/Application Support/Code/User/mcp.json']);
+  assert.deepEqual(candidatePaths('vscode', { ...lctx, platform: 'win32', env: { APPDATA: '/ad' } }).map((c) => c.path), [join('/proj', '.vscode', 'mcp.json'), join('/ad', 'Code', 'User', 'mcp.json')]);
+  assert.deepEqual(candidatePaths('vscode', { ...lctx, platform: 'win32' }).map((c) => c.path), [join('/proj', '.vscode', 'mcp.json'), join('/home/u', 'AppData', 'Roaming', 'Code', 'User', 'mcp.json')]);
+  assert.deepEqual(candidatePaths('vscode', lctx).map((c) => c.scope), ['project', 'user']);
+  assert.equal(guessClient('/x/Code/User/mcp.json'), 'vscode');
+  assert.equal(guessClient('C:\\Users\\u\\AppData\\Roaming\\Code\\User\\mcp.json'), 'vscode');
   assert.deepEqual(candidatePaths('codex', { ...lctx, env: { CODEX_HOME: '/ch' } }).map((c) => c.path), ['/ch/config.toml']);
   assert.equal(guessClient('/x/config.toml'), 'codex');
   assert.equal(guessClient('/x/.mcp.json'), 'claude-code');
@@ -157,4 +163,24 @@ test('check runs unresolved servers as warnings without launching them', async (
   assert.equal(doc.results[0]?.verdict.kind, 'unresolved_variable');
   assert.equal(doc.results[0]?.launched, false);
   assert.equal(res.code, 0, 'a warning does not fail --fail-on error');
+});
+
+test('check finds the VS Code user-profile mcp.json by default', async () => {
+  const home = mkdtempSync(join(tmpdir(), 'mld-vsc-'));
+  dirs.push(home);
+  const cwd = join(home, 'work');
+  mkdirSync(cwd);
+  // user config folder for the platform the test runs on; APPDATA is pinned too (win32)
+  const appdata = join(home, 'AppData', 'Roaming');
+  const userDir =
+    process.platform === 'darwin' ? join(home, 'Library', 'Application Support', 'Code', 'User')
+    : process.platform === 'win32' ? join(appdata, 'Code', 'User')
+    : join(home, '.config', 'Code', 'User');
+  mkdirSync(userDir, { recursive: true });
+  writeFileSync(join(userDir, 'mcp.json'), '{"servers":{"global-one":{"command":"node","args":["x.js"]}}}');
+  const env = cleanEnv({ HOME: home, USERPROFILE: home, APPDATA: appdata, CODEX_HOME: join(home, 'none') });
+  const res = await runCli(['check', '--dry-run', '--json', '--client', 'vscode'], { cwd, env });
+  assert.equal(res.code, 0, res.stderr);
+  const doc = JSON.parse(res.stdout) as { servers: Array<{ server: string; client: string }> };
+  assert.deepEqual(doc.servers.map((s) => [s.server, s.client]), [['global-one', 'vscode']]);
 });

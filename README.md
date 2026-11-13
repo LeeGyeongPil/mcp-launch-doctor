@@ -28,7 +28,7 @@ npm ci          # installs dependencies and builds dist/
 npm start       # builds, then runs the practice demo
 ```
 
-In a clone, run `npm link` once if you want the short `mcp-launch-doctor` command on your PATH (or call `node dist/cli.js` directly). Inside a clone, `node dist/cli.js <command>` gives the same results as `npx mcp-launch-doctor <command>`, with one exception: the `wrap` fix snippet for `stdout_pollution`. Run through npx, the snippet starts wrap as `"command": "npx", "args": ["-y", "mcp-launch-doctor@0.1.0", "wrap", "--", …]` (pinned to the version you ran), because the npx cache folder can be deleted at any time. Run from a clone or a global install (`npm i -g mcp-launch-doctor`), it uses `node` and the absolute path of that `dist/cli.js`.
+In a clone, run `npm link` once if you want the short `mcp-launch-doctor` command on your PATH (or call `node dist/cli.js` directly). Inside a clone, `node dist/cli.js <command>` gives the same results as `npx mcp-launch-doctor <command>`, with one exception: the `wrap` fix snippet for `stdout_pollution`. Run through npx, the snippet starts wrap as `"command": "npx", "args": ["-y", "mcp-launch-doctor@0.1.1", "wrap", "--", …]` (pinned to the version you ran), because the npx cache folder can be deleted at any time. Run from a clone or a global install (`npm i -g mcp-launch-doctor`), it uses `node` and the absolute path of that `dist/cli.js`.
 
 Examples and screenshots below use the short `mcp-launch-doctor` name, as after a global install. Each screenshot shows exactly the command in the code block above it.
 
@@ -103,7 +103,7 @@ mcp-launch-doctor run --env all -- my-server
 ![shell and sdk are ok, gui reports not_found with a fix](docs/images/02-env-profiles.png)
 *The same server under three environments. Here `my-server` sits in a folder that only the shell PATH contains. The screenshot uses placeholder home paths; yours will show your own. To follow along from a clone, use the fixtures in `fixtures/` instead of `my-server`, for example `-- node fixtures/fault-server.mjs`.*
 
-`shell` and `sdk` pass, `gui` fails with `not_found`: apps launched from the Dock or a menu do not get your shell profile, so their PATH is short. The fix snippet uses an absolute path **and** adds the folder of the interpreter to `env.PATH`. Changing only `command` is not enough when the file starts with `#!/usr/bin/env node`: the app would then fail again with `env: node: No such file or directory`.
+`shell` and `sdk` pass, `gui` fails with `not_found`: apps launched from the Dock or a menu do not get your shell profile, so their PATH is short. The fix snippet uses an absolute path **and** adds the folder of the interpreter to `env.PATH`. Changing only `command` is not enough when the file starts with `#!/usr/bin/env node`: the app would then fail again with `env: node: No such file or directory`. A snippet from `run` turns relative file arguments (relative to the current folder) and a relative `command` path into absolute paths, so it works however the app is started. The `wrap` snippet (scenario 4) does not add a `PATH` entry for the interpreter; see Known issues in [CHANGELOG.md](CHANGELOG.md).
 
 ### Scenario 2 — something prints on stdout
 

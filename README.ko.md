@@ -28,7 +28,7 @@ npm ci          # 의존성 설치 + dist/ 빌드
 npm start       # 빌드 후 연습용 데모 실행
 ```
 
-clone 에서 짧은 `mcp-launch-doctor` 명령을 PATH 에 두려면 `npm link` 를 한 번 실행하세요(또는 `node dist/cli.js` 를 직접 호출). clone 안에서 `node dist/cli.js <명령>` 은 `npx mcp-launch-doctor <명령>` 과 결과가 같습니다. 예외는 하나, `stdout_pollution` 의 `wrap` 고칠 조각입니다. npx 로 실행하면 npx 캐시 폴더는 언제든 지워질 수 있으므로 조각이 `"command": "npx", "args": ["-y", "mcp-launch-doctor@0.1.0", "wrap", "--", …]`(방금 실행한 버전으로 고정)로 wrap 을 띄웁니다. clone 이나 전역 설치(`npm i -g mcp-launch-doctor`)로 실행하면 `node` 와 그 `dist/cli.js` 의 절대 경로를 씁니다.
+clone 에서 짧은 `mcp-launch-doctor` 명령을 PATH 에 두려면 `npm link` 를 한 번 실행하세요(또는 `node dist/cli.js` 를 직접 호출). clone 안에서 `node dist/cli.js <명령>` 은 `npx mcp-launch-doctor <명령>` 과 결과가 같습니다. 예외는 하나, `stdout_pollution` 의 `wrap` 고칠 조각입니다. npx 로 실행하면 npx 캐시 폴더는 언제든 지워질 수 있으므로 조각이 `"command": "npx", "args": ["-y", "mcp-launch-doctor@0.1.1", "wrap", "--", …]`(방금 실행한 버전으로 고정)로 wrap 을 띄웁니다. clone 이나 전역 설치(`npm i -g mcp-launch-doctor`)로 실행하면 `node` 와 그 `dist/cli.js` 의 절대 경로를 씁니다.
 
 아래 예와 스크린샷은 전역 설치한 것처럼 짧은 이름 `mcp-launch-doctor` 를 씁니다. 각 스크린샷은 바로 위 코드 블록의 명령을 그대로 실행한 화면입니다.
 
@@ -103,7 +103,7 @@ mcp-launch-doctor run --env all -- my-server
 ![shell 과 sdk 는 ok, gui 는 not_found 와 고칠 조각](docs/images/02-env-profiles.ko.png)
 *같은 서버를 세 환경에서 실행한 결과. 여기서 `my-server` 는 셸 PATH 에만 있는 폴더에 있습니다. 스크린샷의 홈 경로는 자리표시이며 실제로는 본인 경로가 보입니다. clone 에서 따라 하려면 `my-server` 대신 `fixtures/` 의 픽스처를 쓰세요. 예: `-- node fixtures/fault-server.mjs`.*
 
-`shell` 과 `sdk` 는 통과하고 `gui` 만 `not_found` 입니다. Dock 이나 메뉴에서 띄운 앱은 셸 프로필을 읽지 않아 PATH 가 짧기 때문입니다. 고칠 조각은 절대 경로를 쓰고 **인터프리터 폴더도 `env.PATH` 에 넣습니다.** 파일이 `#!/usr/bin/env node` 로 시작하면 `command` 만 바꿔서는 부족합니다 — 앱이 다시 `env: node: No such file or directory` 로 실패합니다.
+`shell` 과 `sdk` 는 통과하고 `gui` 만 `not_found` 입니다. Dock 이나 메뉴에서 띄운 앱은 셸 프로필을 읽지 않아 PATH 가 짧기 때문입니다. 고칠 조각은 절대 경로를 쓰고 **인터프리터 폴더도 `env.PATH` 에 넣습니다.** 파일이 `#!/usr/bin/env node` 로 시작하면 `command` 만 바꿔서는 부족합니다 — 앱이 다시 `env: node: No such file or directory` 로 실패합니다. `run` 으로 받은 조각은 현재 폴더 기준 상대 경로 파일 인자(`args`)와 상대 경로 `command` 를 절대 경로로 바꿔 넣으므로 앱이 어느 폴더에서 띄워도 동작합니다. 다만 `wrap` 조각(시나리오 4)은 인터프리터용 `PATH` 항목을 넣지 않습니다. [CHANGELOG.md](CHANGELOG.md) 의 Known issues 를 참고하세요.
 
 ### 시나리오 2 — stdout 에 뭔가 찍힘
 

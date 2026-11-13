@@ -28,7 +28,7 @@ npm ci          # installs dependencies and builds dist/
 npm start       # builds, then runs the practice demo
 ```
 
-In a clone, run `npm link` once if you want the short `mcp-launch-doctor` command on your PATH (or call `node dist/cli.js` directly). Inside a clone, `node dist/cli.js <command>` gives the same results as `npx mcp-launch-doctor <command>`, with one exception: the `wrap` fix snippet for `stdout_pollution`. Run through npx, the snippet starts wrap as `"command": "npx", "args": ["-y", "mcp-launch-doctor@0.1.1", "wrap", "--", …]` (pinned to the version you ran), because the npx cache folder can be deleted at any time. Run from a clone or a global install (`npm i -g mcp-launch-doctor`), it uses `node` and the absolute path of that `dist/cli.js`.
+In a clone, run `npm link` once if you want the short `mcp-launch-doctor` command on your PATH (or call `node dist/cli.js` directly). Inside a clone, `node dist/cli.js <command>` gives the same results as `npx mcp-launch-doctor <command>`, with one exception: the `wrap` fix snippet for `stdout_pollution`. Run through npx, the snippet starts wrap as `"command": "npx", "args": ["-y", "mcp-launch-doctor@0.2.0", "wrap", "--", …]` (pinned to the version you ran), because the npx cache folder can be deleted at any time. Run from a clone or a global install (`npm i -g mcp-launch-doctor`), it uses `node` and the absolute path of that `dist/cli.js`.
 
 Examples and screenshots below use the short `mcp-launch-doctor` name, as after a global install. Each screenshot shows exactly the command in the code block above it.
 
@@ -189,10 +189,10 @@ These are **approximations**: apps and versions differ, so a `gui` pass or fail 
 | Claude Desktop | `claude_desktop_config.json` (`mcpServers`) | none documented, tool default 30 s |
 | Claude Code | `./.mcp.json`, `~/.claude.json` (`mcpServers`, per-project) | `MCP_TIMEOUT` when set ([docs](https://code.claude.com/docs/en/mcp)), else 30 s |
 | Cursor | `~/.cursor/mcp.json`, `./.cursor/mcp.json` | none documented, tool default 30 s |
-| VS Code | `./.vscode/mcp.json` (`servers`) | none documented, tool default 30 s |
+| VS Code | `./.vscode/mcp.json`, user-profile `mcp.json` (macOS `~/Library/Application Support/Code/User/`, Linux `~/.config/Code/User/`, Windows `%APPDATA%\Code\User\`) (`servers`) | none documented, tool default 30 s |
 | Codex | `$CODEX_HOME/config.toml` or `~/.codex/config.toml` (`[mcp_servers.<name>]`) | `startup_timeout_sec`, default 10 s ([docs](https://learn.chatgpt.com/docs/extend/mcp?surface=cli)) |
 
-Variables: `${VAR}` and `${VAR:-default}` are expanded; `${workspaceFolder}` becomes the current folder; `${input:…}` and unset variables trigger `unresolved_variable` instead of launching with a wrong value. `url`/HTTP entries are listed as skipped. Windows config paths and VS Code user-profile files are not read yet.
+Variables: `${VAR}` and `${VAR:-default}` are expanded; `${workspaceFolder}` becomes the current folder; `${input:…}` and unset variables trigger `unresolved_variable` instead of launching with a wrong value. `url`/HTTP entries are listed as skipped. The VS Code user-profile `mcp.json` is read, so a `check` without arguments now also launches your global VS Code servers (interactive runs still ask before launching; in CI the number of result lines can grow, so pin it with `--client` or `--config`). In the user-profile `mcp.json`, `${workspaceFolder}` also becomes the folder you ran the command in. Not read yet: a custom `XDG_CONFIG_HOME` on Linux, VS Code Insiders, VSCodium, named extra profiles, remote and devcontainer settings, an `mcp` entry inside `settings.json`, and Windows paths for clients other than Claude Desktop and VS Code.
 
 ## Language
 

@@ -28,7 +28,7 @@ npm ci          # 의존성 설치 + dist/ 빌드
 npm start       # 빌드 후 연습용 데모 실행
 ```
 
-clone 에서 짧은 `mcp-launch-doctor` 명령을 PATH 에 두려면 `npm link` 를 한 번 실행하세요(또는 `node dist/cli.js` 를 직접 호출). clone 안에서 `node dist/cli.js <명령>` 은 `npx mcp-launch-doctor <명령>` 과 결과가 같습니다. 예외는 하나, `stdout_pollution` 의 `wrap` 고칠 조각입니다. npx 로 실행하면 npx 캐시 폴더는 언제든 지워질 수 있으므로 조각이 `"command": "npx", "args": ["-y", "mcp-launch-doctor@0.1.1", "wrap", "--", …]`(방금 실행한 버전으로 고정)로 wrap 을 띄웁니다. clone 이나 전역 설치(`npm i -g mcp-launch-doctor`)로 실행하면 `node` 와 그 `dist/cli.js` 의 절대 경로를 씁니다.
+clone 에서 짧은 `mcp-launch-doctor` 명령을 PATH 에 두려면 `npm link` 를 한 번 실행하세요(또는 `node dist/cli.js` 를 직접 호출). clone 안에서 `node dist/cli.js <명령>` 은 `npx mcp-launch-doctor <명령>` 과 결과가 같습니다. 예외는 하나, `stdout_pollution` 의 `wrap` 고칠 조각입니다. npx 로 실행하면 npx 캐시 폴더는 언제든 지워질 수 있으므로 조각이 `"command": "npx", "args": ["-y", "mcp-launch-doctor@0.2.0", "wrap", "--", …]`(방금 실행한 버전으로 고정)로 wrap 을 띄웁니다. clone 이나 전역 설치(`npm i -g mcp-launch-doctor`)로 실행하면 `node` 와 그 `dist/cli.js` 의 절대 경로를 씁니다.
 
 아래 예와 스크린샷은 전역 설치한 것처럼 짧은 이름 `mcp-launch-doctor` 를 씁니다. 각 스크린샷은 바로 위 코드 블록의 명령을 그대로 실행한 화면입니다.
 
@@ -189,10 +189,10 @@ FAULT=crlf mcp-launch-doctor run --fail-on warn --timeout 5000 -- node fixtures/
 | Claude Desktop | `claude_desktop_config.json`(`mcpServers`) | 문서화된 값 없음, 도구 기본 30초 |
 | Claude Code | `./.mcp.json`, `~/.claude.json`(`mcpServers`, 프로젝트별) | `MCP_TIMEOUT` 이 있으면 그 값([문서](https://code.claude.com/docs/en/mcp)), 없으면 30초 |
 | Cursor | `~/.cursor/mcp.json`, `./.cursor/mcp.json` | 문서화된 값 없음, 도구 기본 30초 |
-| VS Code | `./.vscode/mcp.json`(`servers`) | 문서화된 값 없음, 도구 기본 30초 |
+| VS Code | `./.vscode/mcp.json`, 사용자 프로필 `mcp.json`(macOS `~/Library/Application Support/Code/User/`, Linux `~/.config/Code/User/`, Windows `%APPDATA%\Code\User\`) (`servers`) | 문서화된 값 없음, 도구 기본 30초 |
 | Codex | `$CODEX_HOME/config.toml` 또는 `~/.codex/config.toml`(`[mcp_servers.<이름>]`) | `startup_timeout_sec`, 기본 10초([문서](https://learn.chatgpt.com/docs/extend/mcp?surface=cli)) |
 
-변수: `${VAR}`·`${VAR:-default}` 는 펼치고, `${workspaceFolder}` 는 현재 폴더가 되며, `${input:…}` 와 설정 안 된 변수는 틀린 값으로 띄우는 대신 `unresolved_variable` 로 알립니다. `url`/HTTP 항목은 건너뜀으로 표시합니다. Windows 설정 경로와 VS Code 사용자 프로필 파일은 아직 읽지 않습니다.
+변수: `${VAR}`·`${VAR:-default}` 는 펼치고, `${workspaceFolder}` 는 현재 폴더가 되며, `${input:…}` 와 설정 안 된 변수는 틀린 값으로 띄우는 대신 `unresolved_variable` 로 알립니다. `url`/HTTP 항목은 건너뜀으로 표시합니다. VS Code 사용자 프로필의 `mcp.json` 을 읽으므로, 인자 없는 `check` 는 이제 VS Code 전역 서버도 실행합니다(대화형 실행은 띄우기 전에 계속 확인을 묻고, CI 에서는 결과 줄 수가 늘 수 있으니 `--client` 나 `--config` 로 고정하세요). 사용자 프로필 `mcp.json` 안의 `${workspaceFolder}` 도 명령을 실행한 현재 폴더로 바뀝니다. 아직 읽지 않는 것: Linux 의 사용자 지정 `XDG_CONFIG_HOME`, VS Code Insiders, VSCodium, 이름 붙인 추가 프로필, 원격·devcontainer 설정, `settings.json` 안의 `mcp` 항목, Claude Desktop 과 VS Code 외 클라이언트의 Windows 경로.
 
 ## 화면 언어
 

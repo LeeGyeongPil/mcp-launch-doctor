@@ -1,0 +1,27 @@
+# Sample Codex config (~/.codex/config.toml format) using the bundled practice fixture (mock server).
+# Run from the repository root:
+#   mcp-launch-doctor check --client codex --config fixtures/configs/codex.toml
+
+[mcp_servers.fixture]
+command = "node"
+args = ["fixtures/fault-server.mjs"]
+startup_timeout_sec = 20
+env_vars = ["MLD_SAMPLE_PASSTHROUGH"]
+
+[mcp_servers.fixture.env]
+FAULT = "none"
+
+# Starts in 2 s but Codex is told to wait only 1 s -> startup_timeout against the codex limit.
+[mcp_servers.slow-start]
+command = "node"
+args = ["fault-server.mjs"]
+cwd = "fixtures"
+startup_timeout_sec = 1
+
+[mcp_servers.slow-start.env]
+FAULT = "slow"
+SLOW_MS = "2000"
+
+# Remote (streamable HTTP) servers are listed as skipped, never launched.
+[mcp_servers.remote]
+url = "https://example.com/mcp"

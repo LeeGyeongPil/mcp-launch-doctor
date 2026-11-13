@@ -1,0 +1,11 @@
+{
+  // Tests import the built library through the package "imports" alias "#lib/*" (-> ./dist/*.js),
+  // so test/ compiles on its own into dist/test/ and the same import works at type-check time and at run time.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "test",
+    "outDir": "dist/test",
+    "declaration": false
+  },
+  "include": ["test/**/*.ts"]
+}

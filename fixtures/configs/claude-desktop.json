@@ -1,0 +1,21 @@
+{
+  "mcpServers": {
+    "fixture": {
+      "command": "node",
+      "args": ["fixtures/fault-server.mjs"],
+      "env": {
+        "FAULT": "${MLD_SAMPLE_FAULT:-none}"
+      }
+    },
+    "needs-token": {
+      "command": "node",
+      "args": ["fixtures/fault-server.mjs"],
+      "env": {
+        "API_TOKEN": "${MLD_SAMPLE_UNSET_TOKEN}"
+      }
+    },
+    "remote": {
+      "url": "https://example.com/mcp"
+    }
+  }
+}

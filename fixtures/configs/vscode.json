@@ -1,0 +1,25 @@
+// Sample VS Code .vscode/mcp.json (comments and trailing commas are allowed, as in VS Code).
+{
+  "inputs": [
+    { "type": "promptString", "id": "api-key", "description": "API key", "password": true },
+  ],
+  "servers": {
+    "fixture": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["${workspaceFolder}/fixtures/fault-server.mjs"],
+      "env": { "FAULT": "none" },
+    },
+    // ${input:...} is asked for by VS Code at start-up; mcp-launch-doctor cannot answer it, so it warns.
+    "needs-input": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["${workspaceFolder}/fixtures/fault-server.mjs"],
+      "env": { "API_KEY": "${input:api-key}" },
+    },
+    "remote": {
+      "type": "http",
+      "url": "https://example.com/mcp",
+    },
+  },
+}

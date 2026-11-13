@@ -1,0 +1,52 @@
+{
+  "name": "mcp-launch-doctor",
+  "version": "0.1.0",
+  "description": "Launch stdio MCP servers the way desktop apps do, measure stdout byte by byte, and get a ready-to-paste config fix.",
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "stdio",
+    "json-rpc",
+    "claude-desktop",
+    "claude-code",
+    "cursor",
+    "vscode",
+    "codex",
+    "doctor",
+    "cli"
+  ],
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "mcp-launch-doctor": "dist/cli.js"
+  },
+  "imports": {
+    "#lib/*": "./dist/*.js"
+  },
+  "files": [
+    "dist/**/*.js",
+    "!dist/test/**",
+    "fixtures/fault-server.mjs",
+    "fixtures/fault_server.py",
+    "fixtures/configs/*",
+    "README.md",
+    "README.ko.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json 1>&2 && tsc -p tsconfig.test.json 1>&2",
+    "prepare": "npm run build --silent",
+    "test": "npm run build --silent && node --test --test-concurrency=1 \"dist/test/*.test.js\"",
+    "start": "npm run build --silent && node dist/cli.js demo"
+  },
+  "dependencies": {
+    "smol-toml": "1.9.1"
+  },
+  "devDependencies": {
+    "@types/node": "26.6.6",
+    "typescript": "7.0.2"
+  }
+}

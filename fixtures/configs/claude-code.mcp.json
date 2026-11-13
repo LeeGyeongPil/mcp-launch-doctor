@@ -1,0 +1,25 @@
+{
+  "mcpServers": {
+    "fixture": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["fixtures/fault-server.mjs"],
+      "env": {
+        "FAULT": "${MLD_SAMPLE_FAULT:-none}"
+      }
+    },
+    "empty-is-set": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["fixtures/fault-server.mjs"],
+      "env": {
+        "FAULT": "none",
+        "MLD_LABEL": "${MLD_SAMPLE_EMPTY:-was-unset}"
+      }
+    },
+    "remote": {
+      "type": "http",
+      "url": "https://example.com/mcp"
+    }
+  }
+}

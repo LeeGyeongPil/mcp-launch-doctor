@@ -255,7 +255,7 @@ The official SDK client reports a non-JSON stdout line only through `onerror` an
 
 ```bash
 npm ci
-npm test        # builds, then runs the whole test suite (under a minute; some tests wait on slow mock servers)
+npm test        # builds, then runs the whole test suite (about 2 minutes; some tests wait on slow mock servers)
 ```
 
 Requires Node.js 22+; the only runtime dependency is `smol-toml` 1.9.1. Bugs and ideas are welcome as issues. Changes are listed in [CHANGELOG.md](CHANGELOG.md).

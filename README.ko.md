@@ -255,7 +255,7 @@ flowchart LR
 
 ```bash
 npm ci
-npm test        # 빌드 후 전체 테스트 실행(1분 이내, 일부는 느린 목 서버를 기다림)
+npm test        # 빌드 후 전체 테스트 실행(약 2분 이내, 일부는 느린 목 서버를 기다림)
 ```
 
 Node.js 22 이상이 필요하고 런타임 의존성은 `smol-toml` 1.9.1 하나입니다. 버그·제안은 이슈로 남겨 주세요. 변경 기록은 [CHANGELOG.md](CHANGELOG.md).

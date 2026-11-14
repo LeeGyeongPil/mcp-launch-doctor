@@ -10,6 +10,10 @@
 
 - A `check` without arguments can find more servers (your global VS Code servers). Pin the result with `--client` or `--config` in CI.
 
+### Fixed
+
+- Korean output: the "client limit unknown, tool default" label is now fully in Korean.
+
 ## 0.1.1 - 2026-11-14
 
 ### Fixed

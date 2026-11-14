@@ -80,7 +80,7 @@ export const ko: Record<MessageKey, string> = {
   'limit.config': '{client} 설정값',
   'limit.client_default': '{client} 기본값',
   'limit.env': 'MCP_TIMEOUT',
-  'limit.tool_default': '클라이언트 제한 시간 알 수 없음(client limit unknown), 도구 기본값',
+  'limit.tool_default': '클라이언트 제한 시간 알 수 없음, 도구 기본값',
   'limit.demo': '연습용 제한 시간',
 
   'phase.initialize': 'initialize',

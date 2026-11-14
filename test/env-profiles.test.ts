@@ -9,7 +9,7 @@ import { after, before, test } from 'node:test';
 import { pathToFileURL } from 'node:url';
 import { parseMissingInterpreter } from '#lib/diagnose';
 import { buildProfileEnv, LINUX_GUI_PATH, MACOS_GUI_PATH, parseProfiles, SDK_DEFAULT_VARS } from '#lib/envProfiles';
-import { cleanEnv, FIXTURE, runCli } from './helpers.js';
+import { cleanEnv, FIXTURE, NODE_LIMIT_FLAG, runCli } from './helpers.js';
 
 const posix = process.platform !== 'win32';
 let dir = '';
@@ -39,7 +39,8 @@ interface JsonDoc {
 }
 
 test('--env all: shell ok, gui not_found, sdk ok; fix has absolute path and interpreter PATH', { skip: !posix }, async () => {
-  const res = await runCli(['run', '--env', 'all', '--json', '--', 'mld-sample-server'], { env: shellEnvWithDir() });
+  // 넉넉한 --timeout(helpers.ts NODE_LIMIT_MS): shell·sdk 의 ok 가 node 기동 시간에 흔들리지 않게
+  const res = await runCli(['run', '--env', 'all', '--timeout', NODE_LIMIT_FLAG, '--json', '--', 'mld-sample-server'], { env: shellEnvWithDir() });
   const doc = JSON.parse(res.stdout) as JsonDoc;
   const byProfile = Object.fromEntries(doc.results.map((r) => [r.profile, r]));
   assert.equal(byProfile.shell?.verdict.kind, 'ok');
@@ -56,7 +57,7 @@ test('--env all: shell ok, gui not_found, sdk ok; fix has absolute path and inte
 });
 
 test('absolute path under gui: interpreter_missing with an env.PATH fix', { skip: !posix }, async () => {
-  const res = await runCli(['run', '--env', 'gui', '--json', '--', serverPath], { env: shellEnvWithDir() });
+  const res = await runCli(['run', '--env', 'gui', '--timeout', NODE_LIMIT_FLAG, '--json', '--', serverPath], { env: shellEnvWithDir() });
   const doc = JSON.parse(res.stdout) as JsonDoc;
   const r = doc.results[0];
   assert.equal(r?.verdict.kind, 'interpreter_missing');

@@ -9,9 +9,10 @@ import type { ServerSpec } from '#lib/config/parse';
 import { diagnoseServer, type DiagnosisResult } from '#lib/diagnose';
 import { buildFixes, stableNodePath } from '#lib/fixes';
 import { isTemporaryPath, SELF, withoutNpmExec } from '#lib/selfLaunch';
-import { cleanEnv, CLI, FIXTURE, REPO_ROOT } from './helpers.js';
+import { cleanEnv, CLI, FIXTURE, HANG_GUARD_MS, NODE_LIMIT_FLAG, NODE_LIMIT_MS, REPO_ROOT } from './helpers.js';
 
-const LIMIT = { ms: 8000, source: 'flag' as const, known: true };
+// 넉넉한 제한(helpers.ts NODE_LIMIT_MS): wrap 은 node 를 두 번(wrap·픽스처) 띄우므로 바쁜 기계에서도 ok(50% 미만)가 바뀌지 않게 둔다
+const LIMIT = { ms: NODE_LIMIT_MS, source: 'flag' as const, known: true };
 
 function wrapSpec(fault: string): ServerSpec {
   return { name: `wrapped:${fault}`, command: process.execPath, args: [CLI, 'wrap', '--', process.execPath, FIXTURE], env: { FAULT: fault }, passThrough: [], source: 'test', unresolved: [] };
@@ -25,7 +26,7 @@ function rawWrap(fault: string, input: string | null): Promise<{ code: number | 
     let err = '';
     child.stdout.on('data', (d: Buffer) => out.push(d));
     child.stderr.on('data', (d: Buffer) => (err += d.toString('utf8')));
-    const timer = setTimeout(() => { child.kill('SIGKILL'); reject(new Error('wrap did not exit')); }, 15000);
+    const timer = setTimeout(() => { child.kill('SIGKILL'); reject(new Error('wrap did not exit')); }, HANG_GUARD_MS);
     child.on('error', reject);
     child.on('close', (code) => { clearTimeout(timer); resolve({ code, stdout: Buffer.concat(out), stderr: err }); });
     // input === null: stdin 을 바로 닫아 EOF 가 서버까지 전달되는지 본다
@@ -211,7 +212,7 @@ function runNode(args: string[], env: Record<string, string>): Promise<{ code: n
     let stderr = '';
     child.stdout.on('data', (d: Buffer) => (stdout += d.toString('utf8')));
     child.stderr.on('data', (d: Buffer) => (stderr += d.toString('utf8')));
-    const timer = setTimeout(() => { child.kill('SIGKILL'); reject(new Error(`timed out: ${args.join(' ')}`)); }, 30_000);
+    const timer = setTimeout(() => { child.kill('SIGKILL'); reject(new Error(`timed out: ${args.join(' ')}`)); }, HANG_GUARD_MS);
     child.on('error', reject);
     child.on('close', (code) => { clearTimeout(timer); resolve({ code, stdout, stderr }); });
   });
@@ -222,7 +223,7 @@ test('end to end: the tool run from a simulated npx cache prints an npx wrap fix
   // npx 가 실제로 넣는 것처럼: 캐시 .bin 을 PATH 앞에, npm_config_yes 등
   const npxEnv = cleanEnv({ FAULT: 'banner', npm_lifecycle_event: 'npx', npm_command: 'exec', npm_config_yes: 'true', PATH: `${join(cachedCli, '..', '..', '..', '.bin')}${delimiter}${process.env.PATH ?? ''}` });
 
-  const json = await runNode([cachedCli, 'run', '--json', '--lang', 'en', '--', process.execPath, FIXTURE], npxEnv);
+  const json = await runNode([cachedCli, 'run', '--json', '--lang', 'en', '--timeout', NODE_LIMIT_FLAG, '--', process.execPath, FIXTURE], npxEnv);
   assert.equal(json.code, 1, json.stderr);
   assert.doesNotMatch(json.stdout, /_npx/);
   const doc = JSON.parse(json.stdout) as { results: Array<{ verdict: { kind: string }; fixes: Array<{ forKind: string; code: string | null }> }> };
@@ -232,7 +233,7 @@ test('end to end: the tool run from a simulated npx cache prints an npx wrap fix
   assert.equal(entry?.command, 'npx');
   assert.deepEqual(entry?.args.slice(0, 4), ['-y', `mcp-launch-doctor@${PKG_VERSION}`, 'wrap', '--']);
 
-  const human = await runNode([cachedCli, 'run', '--lang', 'ko', '--', process.execPath, FIXTURE], npxEnv);
+  const human = await runNode([cachedCli, 'run', '--lang', 'ko', '--timeout', NODE_LIMIT_FLAG, '--', process.execPath, FIXTURE], npxEnv);
   assert.doesNotMatch(human.stdout, /_npx/);
   assert.match(human.stdout, new RegExp(`"mcp-launch-doctor@${PKG_VERSION.replace(/\./g, '\\.')}"`));
   assert.match(human.stdout, /npx 캐시 폴더/);
@@ -243,7 +244,7 @@ test('npx-added variables reach neither the shell profile nor the server behind 
   const report = 'process.stderr.write("seen yes=" + process.env.npm_config_yes + " package=" + process.env.npm_config_package + "\\n")';
 
   // shell 프로필: 서버가 본 환경을 stderr 로 찍고 끝나게 해서 stderr 꼬리로 확인
-  const run = await runNode([CLI, 'run', '--json', '--', process.execPath, '-e', `${report}; process.exit(3)`], npxEnv);
+  const run = await runNode([CLI, 'run', '--json', '--timeout', NODE_LIMIT_FLAG, '--', process.execPath, '-e', `${report}; process.exit(3)`], npxEnv);
   const doc = JSON.parse(run.stdout) as { results: Array<{ verdict: { kind: string }; stderrTail: string }> };
   assert.equal(doc.results[0]?.verdict.kind, 'early_exit');
   assert.match(doc.results[0]?.stderrTail ?? '', /seen yes=undefined package=undefined/);

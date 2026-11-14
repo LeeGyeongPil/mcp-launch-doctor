@@ -1,41 +1,38 @@
 // AC-8: first run (demo) and the CI contract (--json schema, --fail-on, exit codes).
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { cleanEnv, FIXTURE, runCli } from './helpers.js';
+import { cleanEnv, FIXTURE, NODE_LIMIT_FLAG, NODE_LIMIT_MS, runCli } from './helpers.js';
+
+// 실제 `demo` 명령 테스트는 시간에 기대지 않는 것만 본다: 데모 제한은 제품 상수 2500 ms 라서, CPU 가 꽉 찬
+// 기계에서는 node 픽스처가 그 안에 뜨지 못해 판정이 startup_timeout 으로 바뀔 수 있다.
+// 픽스처별 판정(9종)과 판정 설명 문구는 test/demo.test.ts 가 같은 데모 서버 정의(demoSpec)로 넉넉한 제한을 주입해 검사한다.
+const DEMO_FAULT_NAMES = ['none', 'banner', 'slow', 'exit', 'version', 'crlf', 'bom', 'notjsonrpc', 'partial'];
 
 test('demo prints the practice notice first and the 8-fault table', async () => {
   const res = await runCli(['demo', '--lang', 'en']);
   assert.equal(res.code, 0);
   const firstLine = res.stdout.split('\n')[0] ?? '';
   assert.match(firstLine, /practice fixtures \(mock servers\)/);
-  for (const kind of ['stdout_pollution', 'startup_timeout', 'early_exit', 'version_mismatch', 'framing_warning', 'ok']) {
-    assert.ok(res.stdout.includes(kind), `demo output mentions ${kind}`);
-  }
-  for (const fault of ['none', 'banner', 'slow', 'exit', 'version', 'crlf', 'bom', 'notjsonrpc', 'partial']) {
+  assert.match(res.stdout, /SERVER\s+ENV\s+RESULT\s+FIRST ANSWER\s+TOOLS/);
+  for (const fault of DEMO_FAULT_NAMES) {
     assert.ok(res.stdout.includes(`fault:${fault}`), `row for ${fault}`);
   }
   assert.equal(res.stderr, '', 'nothing on stderr when not a terminal');
 });
 
-test('demo --json has schemaVersion 1, practice flag and results[].verdict.kind', async () => {
+test('demo --json has schemaVersion 1, practice flag, the demo limit and one result per fixture', async () => {
   const res = await runCli(['demo', '--json']);
   assert.equal(res.code, 0);
-  const doc = JSON.parse(res.stdout) as { schemaVersion: number; practice: boolean; results: Array<{ server: string; verdict: { kind: string } }> };
+  const doc = JSON.parse(res.stdout) as { schemaVersion: number; practice: boolean; results: Array<{ server: string; verdict: { kind: string }; limit: unknown }> };
   assert.equal(doc.schemaVersion, 1);
   assert.equal(doc.practice, true);
   assert.equal(doc.results.length, 9);
-  const kinds = Object.fromEntries(doc.results.map((r) => [r.server, r.verdict.kind]));
-  assert.deepEqual(kinds, {
-    'fault:none': 'ok',
-    'fault:banner': 'stdout_pollution',
-    'fault:slow': 'startup_timeout',
-    'fault:exit': 'early_exit',
-    'fault:version': 'version_mismatch',
-    'fault:crlf': 'framing_warning',
-    'fault:bom': 'framing_warning',
-    'fault:notjsonrpc': 'stdout_pollution',
-    'fault:partial': 'framing_warning',
-  });
+  assert.deepEqual(doc.results.map((r) => r.server), DEMO_FAULT_NAMES.map((f) => `fault:${f}`));
+  for (const r of doc.results) {
+    assert.equal(typeof r.verdict.kind, 'string', `${r.server} has a verdict kind`);
+    // CLI 의 demo 는 제품 상수 DEMO_LIMIT_MS(2500 ms)를 쓴다 — 시간을 재지 않고 값만 확인
+    assert.deepEqual(r.limit, { ms: 2500, source: 'demo', known: true }, `${r.server} uses the demo limit`);
+  }
   // 픽스처는 파일 이름으로 띄운다: 설치 위치(npx 캐시·홈 폴더)가 출력과 고칠 조각에 찍히지 않는다
   const fixtureDir = FIXTURE.slice(0, FIXTURE.lastIndexOf('fault-server.mjs'));
   assert.equal(res.stdout.includes(fixtureDir), false, 'no fixture folder path in the demo report');
@@ -43,7 +40,8 @@ test('demo --json has schemaVersion 1, practice flag and results[].verdict.kind'
 });
 
 test('--fail-on switches the exit code (warn-only server)', async () => {
-  const run = (failOn?: string) => runCli(['run', ...(failOn ? ['--fail-on', failOn] : []), '--json', '--', process.execPath, FIXTURE], { env: cleanEnv({ FAULT: 'crlf' }) });
+  // 넉넉한 --timeout(helpers.ts NODE_LIMIT_MS): 판정이 node 기동 시간에 흔들리지 않게 — 이 테스트가 보는 것은 --fail-on 이다
+  const run = (failOn?: string) => runCli(['run', ...(failOn ? ['--fail-on', failOn] : []), '--timeout', NODE_LIMIT_FLAG, '--json', '--', process.execPath, FIXTURE], { env: cleanEnv({ FAULT: 'crlf' }) });
   assert.equal((await run()).code, 0, 'default error: a warning passes');
   assert.equal((await run('error')).code, 0);
   assert.equal((await run('warn')).code, 1);
@@ -51,18 +49,19 @@ test('--fail-on switches the exit code (warn-only server)', async () => {
 });
 
 test('--fail-on with an error-level server', async () => {
-  const run = (failOn: string) => runCli(['run', '--fail-on', failOn, '--', process.execPath, FIXTURE], { env: cleanEnv({ FAULT: 'banner' }) });
+  const run = (failOn: string) => runCli(['run', '--fail-on', failOn, '--timeout', NODE_LIMIT_FLAG, '--', process.execPath, FIXTURE], { env: cleanEnv({ FAULT: 'banner' }) });
   assert.equal((await run('error')).code, 1);
   assert.equal((await run('never')).code, 0);
 });
 
 test('healthy server passes even with --fail-on warn and --timeout', async () => {
-  const res = await runCli(['run', '--json', '--fail-on', 'warn', '--timeout', '10000', '--', process.execPath, FIXTURE], { env: cleanEnv({ FAULT: 'none' }) });
+  // 넉넉한 --timeout: 바쁜 기계에서 node 기동이 느려도 slow_start(50% 이상) 경고로 바뀌어 --fail-on warn 에 걸리지 않게
+  const res = await runCli(['run', '--json', '--fail-on', 'warn', '--timeout', NODE_LIMIT_FLAG, '--', process.execPath, FIXTURE], { env: cleanEnv({ FAULT: 'none' }) });
   assert.equal(res.code, 0);
   const doc = JSON.parse(res.stdout) as { exitCode: number; summary: { ok: number }; results: Array<{ limit: { ms: number; source: string } }> };
   assert.equal(doc.exitCode, 0);
   assert.equal(doc.summary.ok, 1);
-  assert.deepEqual(doc.results[0]?.limit, { ms: 10000, source: 'flag', known: true });
+  assert.deepEqual(doc.results[0]?.limit, { ms: NODE_LIMIT_MS, source: 'flag', known: true });
 });
 
 test('usage errors exit 2', async () => {

@@ -5,16 +5,18 @@ import type { ServerSpec } from '#lib/config/parse';
 import { diagnoseServer, type DiagnosisResult } from '#lib/diagnose';
 import { runSession } from '#lib/session';
 import type { StartupLimit } from '#lib/timeouts';
-import { cleanEnv, FIXTURE, isAlive, runCli } from './helpers.js';
+import { cleanEnv, FIXTURE, isAlive, NODE_LIMIT_FLAG, NODE_LIMIT_MS, runCli } from './helpers.js';
 
-const LIMIT_5S: StartupLimit = { ms: 5000, source: 'flag', known: true };
+// 답해야 하는 픽스처용 넉넉한 제한(helpers.ts NODE_LIMIT_MS): 빨리 답하면 기다리지 않고, CPU 가 꽉 찬 기계에서
+// node 기동이 수십 초 걸려도 ok 판정(제한의 50% 미만)이 바뀌지 않는다. 시간 초과를 보는 테스트는 따로 LIMIT_1S 를 쓴다.
+const LIMIT_ROOMY: StartupLimit = { ms: NODE_LIMIT_MS, source: 'flag', known: true };
 const LIMIT_1S: StartupLimit = { ms: 1000, source: 'flag', known: true };
 
 function spec(fault: string, extraEnv: Record<string, string> = {}): ServerSpec {
   return { name: `fault:${fault}`, command: process.execPath, args: [FIXTURE], env: { FAULT: fault, ...extraEnv }, passThrough: [], source: 'test', unresolved: [] };
 }
 
-function run(fault: string, limit = LIMIT_5S, extraEnv: Record<string, string> = {}): Promise<DiagnosisResult> {
+function run(fault: string, limit = LIMIT_ROOMY, extraEnv: Record<string, string> = {}): Promise<DiagnosisResult> {
   return diagnoseServer(spec(fault, extraEnv), { profile: 'shell', limit, retry: true, baseEnv: cleanEnv() });
 }
 
@@ -104,7 +106,7 @@ test('the server process is gone after a timed-out session', async () => {
 });
 
 test('run --json masks the token in stderrTail (CLI path)', async () => {
-  const res = await runCli(['run', '--json', '--', process.execPath, FIXTURE], { env: cleanEnv({ FAULT: 'exit' }) });
+  const res = await runCli(['run', '--json', '--timeout', NODE_LIMIT_FLAG, '--', process.execPath, FIXTURE], { env: cleanEnv({ FAULT: 'exit' }) });
   assert.equal(res.code, 1);
   const doc = JSON.parse(res.stdout) as { results: Array<{ verdict: { kind: string }; stderrTail: string }> };
   assert.equal(doc.results[0]?.verdict.kind, 'early_exit');

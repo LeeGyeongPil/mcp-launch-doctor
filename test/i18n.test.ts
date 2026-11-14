@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { LANG_ENV, MESSAGES, resolveLang, t } from '#lib/i18n';
-import { cleanEnv, FIXTURE, runCli } from './helpers.js';
+import { cleanEnv, FIXTURE, NODE_LIMIT_FLAG, runCli } from './helpers.js';
 
 test('en and ko have exactly the same message keys and placeholders', () => {
   const en = Object.keys(MESSAGES.en).sort();
@@ -48,18 +48,19 @@ test('--help in each language', async () => {
   assert.match(flagWins.stdout, /Usage/);
 });
 
-test('demo table headers and verdict explanations follow --lang', async () => {
+test('demo table headers and the practice notice follow --lang', async () => {
+  // 판정 설명 문구(JSON-RPC 가 아닙니다 / are not JSON-RPC)는 판정이 node 기동 시간에 흔들리지 않도록
+  // test/demo.test.ts 가 넉넉한 제한으로 얻은 데모 결과를 renderHuman 으로 그려 언어별로 검사한다
   const ko = await runCli(['demo', '--lang', 'ko']);
   assert.match(ko.stdout, /서버\s+환경\s+판정\s+첫 응답\s+도구/);
-  assert.match(ko.stdout, /JSON-RPC 가 아닙니다/);
   assert.match(ko.stdout, /목\(mock\) 서버/);
   const en = await runCli(['demo', '--lang', 'en']);
   assert.match(en.stdout, /SERVER\s+ENV\s+RESULT\s+FIRST ANSWER\s+TOOLS/);
-  assert.match(en.stdout, /are not JSON-RPC/);
+  assert.match(en.stdout, /mock servers/);
 });
 
 test('JSON keys and kinds are the same in both languages; only messages change', async () => {
-  const run = (lang: string) => runCli(['run', '--json', '--lang', lang, '--', process.execPath, FIXTURE], { env: cleanEnv({ FAULT: 'banner' }) });
+  const run = (lang: string) => runCli(['run', '--json', '--lang', lang, '--timeout', NODE_LIMIT_FLAG, '--', process.execPath, FIXTURE], { env: cleanEnv({ FAULT: 'banner' }) });
   const en = JSON.parse((await run('en')).stdout) as { results: Array<{ verdict: { kind: string; message: string } }> };
   const ko = JSON.parse((await run('ko')).stdout) as { results: Array<{ verdict: { kind: string; message: string } }> };
   const shape = (v: unknown): unknown => (Array.isArray(v) ? v.map(shape) : v && typeof v === 'object' ? Object.keys(v).sort() : typeof v);

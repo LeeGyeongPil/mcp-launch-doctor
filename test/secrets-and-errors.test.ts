@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { redactArgs } from '#lib/redact';
-import { cleanEnv, FIXTURE, runCli } from './helpers.js';
+import { cleanEnv, FIXTURE, NODE_LIMIT_FLAG, runCli } from './helpers.js';
 
 // Fake secrets are assembled from pieces so secret scanners do not flag this file.
 const SK = ['sk', 'proj', 'abcdef123456'].join('-');
@@ -37,8 +37,8 @@ test('secrets in server args never appear in dry-run, --json or fix snippets', a
     const runs = [
       ['check', '--client', 'cursor', '--config', path, '--dry-run'],
       ['check', '--client', 'cursor', '--config', path, '--dry-run', '--json'],
-      ['check', '--client', 'cursor', '--config', path, '--env', 'shell'],
-      ['check', '--client', 'cursor', '--config', path, '--env', 'shell', '--json'],
+      ['check', '--client', 'cursor', '--config', path, '--env', 'shell', '--timeout', NODE_LIMIT_FLAG],
+      ['check', '--client', 'cursor', '--config', path, '--env', 'shell', '--timeout', NODE_LIMIT_FLAG, '--json'],
     ];
     for (const args of runs) {
       const res = await runCli(args);
@@ -47,9 +47,10 @@ test('secrets in server args never appear in dry-run, --json or fix snippets', a
         assert.ok(!res.stderr.includes(secret), `${args.join(' ')} leaked on stderr`);
       }
     }
-    const human = await runCli(['check', '--client', 'cursor', '--config', path, '--env', 'shell']);
+    // 넉넉한 --timeout(helpers.ts NODE_LIMIT_MS): 판정이 stdout_pollution 으로 나와야 wrap 고칠 조각(가려진 값 안내)이 붙는다
+    const human = await runCli(['check', '--client', 'cursor', '--config', path, '--env', 'shell', '--timeout', NODE_LIMIT_FLAG]);
     assert.match(human.stdout, /masked/, 'the fix snippet explains the masked values');
-    const ko = await runCli(['check', '--client', 'cursor', '--config', path, '--env', 'shell', '--lang', 'ko']);
+    const ko = await runCli(['check', '--client', 'cursor', '--config', path, '--env', 'shell', '--timeout', NODE_LIMIT_FLAG, '--lang', 'ko']);
     assert.match(ko.stdout, /가려진/);
   } finally {
     rmSync(dir, { recursive: true, force: true });

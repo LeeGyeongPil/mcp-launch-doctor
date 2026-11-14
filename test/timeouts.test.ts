@@ -1,13 +1,17 @@
-// AC-6: startup limits per client, judged against the real fixture.
+// AC-6: startup limits per client, judged against the real fixture (the slow_start pair uses a shell stub, see below).
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { test } from 'node:test';
+import { after, test } from 'node:test';
 import { parseConfigText, type ServerSpec } from '#lib/config/parse';
 import { diagnoseServer } from '#lib/diagnose';
 import { describe as describeFinding } from '#lib/report';
 import { CODEX_DEFAULT_STARTUP_MS, resolveStartupLimit, TOOL_DEFAULT_TIMEOUT_MS } from '#lib/timeouts';
-import { cleanEnv, CONFIGS, FIXTURE, REPO_ROOT } from './helpers.js';
+import { cleanEnv, CONFIGS, FIXTURE, REPO_ROOT, writeShellServer } from './helpers.js';
+
+// 셸 스크립트 서버를 쓰는 테스트는 POSIX 전용(CI 는 ubuntu·macos 라 둘 다 실제로 돈다)
+const posix = process.platform !== 'win32';
 
 test('Codex without startup_timeout_sec uses 10000 ms with its source', () => {
   const limit = resolveStartupLimit({ client: 'codex', env: {} });
@@ -61,16 +65,31 @@ test('Claude Code without MCP_TIMEOUT: message says client limit unknown', async
   assert.match(r.fixes.find((f) => f.forKind === 'startup_timeout')?.code ?? '', /^MCP_TIMEOUT=\d+ claude$/);
 });
 
-test('answer above 50% of the limit -> slow_start warning', async () => {
-  const spec: ServerSpec = { name: 'x', command: process.execPath, args: [FIXTURE], env: { FAULT: 'slow', SLOW_MS: '2600' }, passThrough: [], source: 't', unresolved: [] };
-  const r = await diagnoseServer(spec, { profile: 'shell', limit: { ms: 4000, source: 'flag', known: true }, retry: false, baseEnv: cleanEnv() });
+// slow_start 는 "답이 제한의 50% 와 100% 사이"일 때다. 그 구간에 들어가는 시각이 node 기동 시간(바쁜 기계에서
+// 몇 초~십수 초)에 흔들리지 않도록, 이 두 테스트는 셸 내장 명령으로 답하는 작은 서버를 쓴다(helpers.ts).
+const SLOW_START_LIMIT_MS = 20000;
+const slowDirs: string[] = [];
+after(() => { for (const d of slowDirs) rmSync(d, { recursive: true, force: true }); });
+
+function shellServer(delaySec?: number): string {
+  const dir = mkdtempSync(join(tmpdir(), 'mld-slow-'));
+  slowDirs.push(dir);
+  const file = join(dir, 'server.sh');
+  writeShellServer(file, { delaySec });
+  return file;
+}
+
+test('answer above 50% of the limit -> slow_start warning', { skip: !posix }, async () => {
+  // 10.5 s 뒤에 답한다: 50%(10 s)는 반드시 넘고(대기는 spawn 뒤에 시작), 제한(20 s)까지는 sh·sleep 기동에 9.5 s 여유가 있다
+  const spec: ServerSpec = { name: 'x', command: shellServer(10.5), args: [], env: {}, passThrough: [], source: 't', unresolved: [] };
+  const r = await diagnoseServer(spec, { profile: 'shell', limit: { ms: SLOW_START_LIMIT_MS, source: 'flag', known: true }, retry: false, baseEnv: cleanEnv() });
   assert.equal(r.verdict.kind, 'slow_start');
   assert.equal(r.verdict.severity, 'warn');
-  assert.ok((r.timings.initializeMs ?? 0) > 2000);
+  assert.ok((r.timings.initializeMs ?? 0) > SLOW_START_LIMIT_MS * 0.5);
 });
 
-test('a fast server under the same limit has no slow_start', async () => {
-  const spec: ServerSpec = { name: 'x', command: process.execPath, args: [FIXTURE], env: { FAULT: 'none' }, passThrough: [], source: 't', unresolved: [] };
-  const r = await diagnoseServer(spec, { profile: 'shell', limit: { ms: 10000, source: 'flag', known: true }, retry: false, baseEnv: cleanEnv() });
+test('a fast server under the same limit has no slow_start', { skip: !posix }, async () => {
+  const spec: ServerSpec = { name: 'x', command: shellServer(), args: [], env: {}, passThrough: [], source: 't', unresolved: [] };
+  const r = await diagnoseServer(spec, { profile: 'shell', limit: { ms: SLOW_START_LIMIT_MS, source: 'flag', known: true }, retry: false, baseEnv: cleanEnv() });
   assert.equal(r.verdict.kind, 'ok');
 });

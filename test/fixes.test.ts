@@ -6,7 +6,7 @@ import { existsSync } from 'node:fs';
 import type { ServerSpec } from '#lib/config/parse';
 import type { DiagnosisResult, Finding } from '#lib/diagnose';
 import { buildFixes, fixArgs, fixCommand } from '#lib/fixes';
-import { cleanEnv, REPO_ROOT, runCli } from './helpers.js';
+import { cleanEnv, NODE_LIMIT_FLAG, REPO_ROOT, runCli } from './helpers.js';
 
 const spec = (args: string[], command = 'node', argBase: string | null = REPO_ROOT): ServerSpec => ({ name: 'x', command, args, env: {}, passThrough: [], source: 'command line', unresolved: [], ...(argBase ? { argBase } : {}) });
 
@@ -46,7 +46,8 @@ test('stdout_pollution wrap snippet (node and npx forms) has an absolute script 
 });
 
 test('end to end: run wrap snippet carries an absolute path; demo shows no install path', async () => {
-  const res = await runCli(['run', '--json', '--env', 'shell', '--', 'env', 'FAULT=banner', 'node', 'fixtures/fault-server.mjs'], { env: cleanEnv() });
+  // 넉넉한 --timeout(helpers.ts NODE_LIMIT_MS): stdout_pollution 판정(wrap 고칠 조각)이 node 기동 시간에 흔들리지 않게
+  const res = await runCli(['run', '--json', '--env', 'shell', '--timeout', NODE_LIMIT_FLAG, '--', 'env', 'FAULT=banner', 'node', 'fixtures/fault-server.mjs'], { env: cleanEnv() });
   const doc = JSON.parse(res.stdout) as { results: Array<{ fixes?: Array<{ code?: string }> }> };
   const codes = doc.results.flatMap((r) => r.fixes ?? []).map((f) => f.code ?? '').join('\n');
   assert.ok(codes.includes(REPO_ROOT + 'fixtures/fault-server.mjs'), codes);

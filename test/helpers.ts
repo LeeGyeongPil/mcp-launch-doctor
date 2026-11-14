@@ -1,5 +1,6 @@
 // Shared paths and a small CLI runner for the tests (compiled to dist/test/).
 import { spawn } from 'node:child_process';
+import { chmodSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 export const REPO_ROOT = fileURLToPath(new URL('../../', import.meta.url));
@@ -7,6 +8,15 @@ export const CLI = fileURLToPath(new URL('../cli.js', import.meta.url));
 export const FIXTURE = fileURLToPath(new URL('../../fixtures/fault-server.mjs', import.meta.url));
 export const PY_FIXTURE = fileURLToPath(new URL('../../fixtures/fault_server.py', import.meta.url));
 export const CONFIGS = fileURLToPath(new URL('../../fixtures/configs/', import.meta.url));
+
+// 테스트의 시간 값은 두 종류뿐이다(코어 수만큼 바쁜 프로세스를 띄운 맥에서 잰 기동 시간: node 12~55 s).
+//  - NODE_LIMIT_MS: node 자식(픽스처·wrap)이 "제한 안에 답해야" 통과하는 테스트에 주는 시작 제한.
+//    빨리 답하면 기다리지 않으므로 평소 비용은 0. node 두 번 기동(wrap → 픽스처)이 각각 55 s 걸려도
+//    ok(제한의 50% = 300 s 미만)가 바뀌지 않는다. 시간 초과를 보는 테스트는 짧은 제한을 따로 쓴다.
+//  - HANG_GUARD_MS: 자식 프로세스가 끝나지 않을 때 테스트를 멈추는 안전장치(판정에는 쓰지 않는다).
+export const NODE_LIMIT_MS = 600_000;
+export const NODE_LIMIT_FLAG = String(NODE_LIMIT_MS);
+export const HANG_GUARD_MS = 15 * 60_000;
 
 /** process.env without the variables that would change the tool's language or the fixtures. */
 export function cleanEnv(extra: Record<string, string> = {}): Record<string, string> {
@@ -33,7 +43,7 @@ export function runCli(args: string[], opts: { env?: Record<string, string>; cwd
     const timer = setTimeout(() => {
       child.kill('SIGKILL');
       reject(new Error(`CLI timed out: ${args.join(' ')}\n${stderr}`));
-    }, opts.timeoutMs ?? 60_000);
+    }, opts.timeoutMs ?? HANG_GUARD_MS);
     child.on('error', reject);
     child.on('close', (code) => {
       clearTimeout(timer);
@@ -56,6 +66,35 @@ export function fixtureStdout(fault: string): Promise<Buffer> {
     const list = { jsonrpc: '2.0', id: 2, method: 'tools/list', params: {} };
     child.stdin.end(JSON.stringify(init) + '\n' + JSON.stringify(list) + '\n');
   });
+}
+
+/**
+ * Writes a tiny POSIX shell MCP server (test double) to `file` and makes it executable.
+ * It answers initialize (id 1) and tools/list (id 2) — the ids session.ts sends — with shell
+ * built-ins only, so its answer time does not depend on how long node takes to start on a busy
+ * machine (measured with one busy loop per core: sh 0.3-0.7 s, python3 2.2-2.8 s, node 12-55 s).
+ *  - firstRunMarker: the first run creates the marker at once (before anything else) and then never
+ *    answers — like a package runner still downloading — until the session ends its process group.
+ *    Later runs answer normally.
+ *  - delaySec: wait this long (an external `sleep`) before answering initialize.
+ */
+export function writeShellServer(file: string, opts: { firstRunMarker?: string; delaySec?: number } = {}): void {
+  const lines = ['#!/bin/sh'];
+  if (opts.firstRunMarker) {
+    lines.push(`if [ ! -e '${opts.firstRunMarker}' ]; then`, `  : > '${opts.firstRunMarker}'`, '  exec sleep 300', 'fi');
+  }
+  const wait = opts.delaySec ? `sleep ${opts.delaySec}; ` : '';
+  lines.push(
+    'while IFS= read -r line; do',
+    '  case "$line" in',
+    `    *'"id":1,"method":"initialize"'*) ${wait}echo '{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":"2025-11-25","capabilities":{"tools":{}},"serverInfo":{"name":"shell-stub","version":"0"}}}' ;;`,
+    `    *'"id":2,"method":"tools/list"'*) echo '{"jsonrpc":"2.0","id":2,"result":{"tools":[{"name":"echo","inputSchema":{"type":"object"}}]}}' ;;`,
+    '  esac',
+    'done',
+    '',
+  );
+  writeFileSync(file, lines.join('\n'));
+  chmodSync(file, 0o755);
 }
 
 /**

@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.2.2 - 2026-11-24
+
+### Fixed
+
+- The `wrap` fix snippet (clone and global installs) now adds an `env.PATH` with the wrapped command's folder, its interpreter's folder and the GUI default path when the wrapped command is a bare name found on the shell PATH (such as `node`), so the app can start it. This addresses the 0.1.1 known issue below.
+
+### Known issues
+
+- When the wrapped command is an absolute path to a script that starts with `#!/usr/bin/env node` (or another `#!/usr/bin/env` interpreter), the `wrap` fix snippet still adds no `env.PATH`, so a GUI app may fail with `interpreter_missing` (`env: node: No such file or directory`). Add the interpreter's folder (for example the output of `dirname "$(command -v node)"`) to the entry's `env.PATH` by hand, then confirm with `check --env gui`.
+
 ## 0.2.1 - 2026-11-24
 
 ### Fixed

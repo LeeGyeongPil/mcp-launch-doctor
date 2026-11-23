@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.1 - 2026-11-24
+
+### Fixed
+
+- Codex TOML fix snippets now keep the original entry's `cwd`, `env` (secret-looking values shown as `***`) and `env_vars`, so replacing the entry no longer breaks relative paths or drops settings. This resolves the 0.1.1 known issue below.
+
 ## 0.2.0 - 2026-11-14
 
 ### Added
@@ -35,6 +41,7 @@ First release.
 - Per-client startup limits, retry on timeout to tell `buffering` from `first_run_install`, ready-to-paste fix snippets.
 - `--json` output (`schemaVersion: 1`), `--fail-on`, `--dry-run`, English and Korean output.
 
+[0.2.1]: https://github.com/LeeGyeongPil/mcp-launch-doctor/releases/tag/v0.2.1
 [0.2.0]: https://github.com/LeeGyeongPil/mcp-launch-doctor/releases/tag/v0.2.0
 [0.1.1]: https://github.com/LeeGyeongPil/mcp-launch-doctor/releases/tag/v0.1.1
 [0.1.0]: https://github.com/LeeGyeongPil/mcp-launch-doctor/releases/tag/v0.1.0

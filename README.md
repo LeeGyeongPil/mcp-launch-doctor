@@ -28,7 +28,7 @@ npm ci          # installs dependencies and builds dist/
 npm start       # builds, then runs the practice demo
 ```
 
-In a clone, run `npm link` once if you want the short `mcp-launch-doctor` command on your PATH (or call `node dist/cli.js` directly). Inside a clone, `node dist/cli.js <command>` gives the same results as `npx mcp-launch-doctor <command>`, with one exception: the `wrap` fix snippet for `stdout_pollution`. Run through npx, the snippet starts wrap as `"command": "npx", "args": ["-y", "mcp-launch-doctor@0.2.0", "wrap", "--", …]` (pinned to the version you ran), because the npx cache folder can be deleted at any time. Run from a clone or a global install (`npm i -g mcp-launch-doctor`), it uses `node` and the absolute path of that `dist/cli.js`.
+In a clone, run `npm link` once if you want the short `mcp-launch-doctor` command on your PATH (or call `node dist/cli.js` directly). Inside a clone, `node dist/cli.js <command>` gives the same results as `npx mcp-launch-doctor <command>`, with one exception: the `wrap` fix snippet for `stdout_pollution`. Run through npx, the snippet starts wrap as `"command": "npx", "args": ["-y", "mcp-launch-doctor@0.2.1", "wrap", "--", …]` (pinned to the version you ran), because the npx cache folder can be deleted at any time. Run from a clone or a global install (`npm i -g mcp-launch-doctor`), it uses `node` and the absolute path of that `dist/cli.js`.
 
 Examples and screenshots below use the short `mcp-launch-doctor` name, as after a global install. Each screenshot shows exactly the command in the code block above it.
 
@@ -125,7 +125,7 @@ mcp-launch-doctor check --client codex --config fixtures/configs/codex.toml --en
 ![startup_timeout against the Codex limit with a TOML fix](docs/images/04-codex-timeout.png)
 *`slow-start` needs 2 s but its config allows 1 s (`startup_timeout_sec = 1`).*
 
-The tool applies the client's own limit (Codex: the server's `startup_timeout_sec`, otherwise 10 s). When a server times out it retries once to find the cause: the same command again (a fast second start means `first_run_install`, a package download on first use) and, for Python commands, with `PYTHONUNBUFFERED=1` (a fix means `buffering`). The fix comes in the client's own format — TOML for Codex, JSON for the others.
+The tool applies the client's own limit (Codex: the server's `startup_timeout_sec`, otherwise 10 s). When a server times out it retries once to find the cause: the same command again (a fast second start means `first_run_install`, a package download on first use) and, for Python commands, with `PYTHONUNBUFFERED=1` (a fix means `buffering`). The fix comes in the client's own format — TOML for Codex, JSON for the others. A Codex TOML snippet keeps the entry's `cwd`, `env` (secret-looking values shown as `***`) and `env_vars`.
 
 ### Scenario 4 — put `wrap` in front
 

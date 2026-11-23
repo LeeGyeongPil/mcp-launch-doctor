@@ -28,7 +28,7 @@ npm ci          # 의존성 설치 + dist/ 빌드
 npm start       # 빌드 후 연습용 데모 실행
 ```
 
-clone 에서 짧은 `mcp-launch-doctor` 명령을 PATH 에 두려면 `npm link` 를 한 번 실행하세요(또는 `node dist/cli.js` 를 직접 호출). clone 안에서 `node dist/cli.js <명령>` 은 `npx mcp-launch-doctor <명령>` 과 결과가 같습니다. 예외는 하나, `stdout_pollution` 의 `wrap` 고칠 조각입니다. npx 로 실행하면 npx 캐시 폴더는 언제든 지워질 수 있으므로 조각이 `"command": "npx", "args": ["-y", "mcp-launch-doctor@0.2.0", "wrap", "--", …]`(방금 실행한 버전으로 고정)로 wrap 을 띄웁니다. clone 이나 전역 설치(`npm i -g mcp-launch-doctor`)로 실행하면 `node` 와 그 `dist/cli.js` 의 절대 경로를 씁니다.
+clone 에서 짧은 `mcp-launch-doctor` 명령을 PATH 에 두려면 `npm link` 를 한 번 실행하세요(또는 `node dist/cli.js` 를 직접 호출). clone 안에서 `node dist/cli.js <명령>` 은 `npx mcp-launch-doctor <명령>` 과 결과가 같습니다. 예외는 하나, `stdout_pollution` 의 `wrap` 고칠 조각입니다. npx 로 실행하면 npx 캐시 폴더는 언제든 지워질 수 있으므로 조각이 `"command": "npx", "args": ["-y", "mcp-launch-doctor@0.2.1", "wrap", "--", …]`(방금 실행한 버전으로 고정)로 wrap 을 띄웁니다. clone 이나 전역 설치(`npm i -g mcp-launch-doctor`)로 실행하면 `node` 와 그 `dist/cli.js` 의 절대 경로를 씁니다.
 
 아래 예와 스크린샷은 전역 설치한 것처럼 짧은 이름 `mcp-launch-doctor` 를 씁니다. 각 스크린샷은 바로 위 코드 블록의 명령을 그대로 실행한 화면입니다.
 
@@ -125,7 +125,7 @@ mcp-launch-doctor check --client codex --config fixtures/configs/codex.toml --en
 ![Codex 제한 시간 대비 startup_timeout 과 TOML 조각](docs/images/04-codex-timeout.ko.png)
 *`slow-start` 는 2초가 필요한데 설정은 1초만 허용합니다(`startup_timeout_sec = 1`).*
 
-도구는 클라이언트 자신의 제한 시간을 적용합니다(Codex: 서버의 `startup_timeout_sec`, 없으면 10초). 시간 초과가 나면 원인을 찾으려고 한 번 재시도합니다. 같은 명령을 다시 실행해 빨라지면 `first_run_install`(처음 실행 때의 패키지 다운로드), Python 명령이면 `PYTHONUNBUFFERED=1` 로 해결되는지 봅니다(`buffering`). 고칠 조각은 클라이언트 형식으로 나옵니다 — Codex 는 TOML, 나머지는 JSON.
+도구는 클라이언트 자신의 제한 시간을 적용합니다(Codex: 서버의 `startup_timeout_sec`, 없으면 10초). 시간 초과가 나면 원인을 찾으려고 한 번 재시도합니다. 같은 명령을 다시 실행해 빨라지면 `first_run_install`(처음 실행 때의 패키지 다운로드), Python 명령이면 `PYTHONUNBUFFERED=1` 로 해결되는지 봅니다(`buffering`). 고칠 조각은 클라이언트 형식으로 나옵니다 — Codex 는 TOML, 나머지는 JSON. Codex TOML 조각은 원래 항목의 `cwd`, `env`(비밀처럼 보이는 값은 `***`), `env_vars` 를 그대로 유지합니다.
 
 ### 시나리오 4 — 앞에 `wrap` 끼우기
 

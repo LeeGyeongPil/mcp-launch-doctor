@@ -51,6 +51,7 @@ First release.
 - Per-client startup limits, retry on timeout to tell `buffering` from `first_run_install`, ready-to-paste fix snippets.
 - `--json` output (`schemaVersion: 1`), `--fail-on`, `--dry-run`, English and Korean output.
 
+[0.2.2]: https://github.com/LeeGyeongPil/mcp-launch-doctor/releases/tag/v0.2.2
 [0.2.1]: https://github.com/LeeGyeongPil/mcp-launch-doctor/releases/tag/v0.2.1
 [0.2.0]: https://github.com/LeeGyeongPil/mcp-launch-doctor/releases/tag/v0.2.0
 [0.1.1]: https://github.com/LeeGyeongPil/mcp-launch-doctor/releases/tag/v0.1.1

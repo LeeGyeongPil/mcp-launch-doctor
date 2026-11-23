@@ -28,7 +28,7 @@ npm ci          # installs dependencies and builds dist/
 npm start       # builds, then runs the practice demo
 ```
 
-In a clone, run `npm link` once if you want the short `mcp-launch-doctor` command on your PATH (or call `node dist/cli.js` directly). Inside a clone, `node dist/cli.js <command>` gives the same results as `npx mcp-launch-doctor <command>`, with one exception: the `wrap` fix snippet for `stdout_pollution`. Run through npx, the snippet starts wrap as `"command": "npx", "args": ["-y", "mcp-launch-doctor@0.2.1", "wrap", "--", …]` (pinned to the version you ran), because the npx cache folder can be deleted at any time. Run from a clone or a global install (`npm i -g mcp-launch-doctor`), it uses `node` and the absolute path of that `dist/cli.js`.
+In a clone, run `npm link` once if you want the short `mcp-launch-doctor` command on your PATH (or call `node dist/cli.js` directly). Inside a clone, `node dist/cli.js <command>` gives the same results as `npx mcp-launch-doctor <command>`, with one exception: the `wrap` fix snippet for `stdout_pollution`. Run through npx, the snippet starts wrap as `"command": "npx", "args": ["-y", "mcp-launch-doctor@0.2.1", "wrap", "--", …]` (pinned to the version you ran), because the npx cache folder can be deleted at any time. Run from a clone or a global install (`npm i -g mcp-launch-doctor`), it uses the absolute path of the `node` executable and the absolute path of that `dist/cli.js`.
 
 Examples and screenshots below use the short `mcp-launch-doctor` name, as after a global install. Each screenshot shows exactly the command in the code block above it.
 
@@ -103,7 +103,7 @@ mcp-launch-doctor run --env all -- my-server
 ![shell and sdk are ok, gui reports not_found with a fix](docs/images/02-env-profiles.png)
 *The same server under three environments. Here `my-server` sits in a folder that only the shell PATH contains. The screenshot uses placeholder home paths; yours will show your own. To follow along from a clone, use the fixtures in `fixtures/` instead of `my-server`, for example `-- node fixtures/fault-server.mjs`.*
 
-`shell` and `sdk` pass, `gui` fails with `not_found`: apps launched from the Dock or a menu do not get your shell profile, so their PATH is short. The fix snippet uses an absolute path **and** adds the folder of the interpreter to `env.PATH`. Changing only `command` is not enough when the file starts with `#!/usr/bin/env node`: the app would then fail again with `env: node: No such file or directory`. A snippet from `run` turns relative file arguments (relative to the current folder) and a relative `command` path into absolute paths, so it works however the app is started. The `wrap` snippet (scenario 4) does not add a `PATH` entry for the interpreter; see Known issues in [CHANGELOG.md](CHANGELOG.md).
+`shell` and `sdk` pass, `gui` fails with `not_found`: apps launched from the Dock or a menu do not get your shell profile, so their PATH is short. The fix snippet uses an absolute path **and** adds the folder of the interpreter to `env.PATH`. Changing only `command` is not enough when the file starts with `#!/usr/bin/env node`: the app would then fail again with `env: node: No such file or directory`. A snippet from `run` turns relative file arguments (relative to the current folder) and a relative `command` path into absolute paths, so it works however the app is started. The `wrap` snippet has its own `env.PATH` rule; see scenario 4.
 
 ### Scenario 2 — something prints on stdout
 
@@ -139,6 +139,16 @@ FAULT=banner mcp-launch-doctor run -- mcp-launch-doctor wrap -- node fixtures/fa
 `wrap` moved the two banner lines to stderr (as `[wrap] diverted: Starting fixture server v0.1 ...` and `[wrap] diverted: [debug] initialized ok`), so only JSON-RPC reached stdout.
 
 `wrap` is a stop-gap for servers you cannot fix yet. It passes JSON-RPC lines through (dropping a BOM, turning CRLF into LF), moves everything else to stderr, and forwards the exit code and stdin EOF. The best fix is still to make the server log to stderr. For a `stdout_pollution` result the tool prints the `wrap` config snippet for you.
+
+Does the `wrap` snippet include an `env.PATH`? It depends on how you ran the tool and on the wrapped command:
+
+| You ran the tool via | Wrapped command | `env.PATH` in the snippet |
+|---|---|---|
+| clone or global install | bare name found on the shell PATH (`node`, `my-server`) | yes: that command's folder, its interpreter's folder, the GUI default path |
+| clone or global install | already a path, or not found on the shell PATH | no |
+| `npx` | any | no |
+
+Known limit: if the wrapped command is an absolute path to a script that starts with `#!/usr/bin/env node`, the snippet has no `env.PATH`, and a GUI app may fail with `env: node: No such file or directory`. Add the interpreter's folder (the output of `dirname "$(command -v node)"`) to the entry's `env.PATH` yourself, then confirm with `check --env gui`.
 
 ### Scenario 5 — CI for server authors
 

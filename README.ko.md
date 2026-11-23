@@ -28,7 +28,7 @@ npm ci          # 의존성 설치 + dist/ 빌드
 npm start       # 빌드 후 연습용 데모 실행
 ```
 
-clone 에서 짧은 `mcp-launch-doctor` 명령을 PATH 에 두려면 `npm link` 를 한 번 실행하세요(또는 `node dist/cli.js` 를 직접 호출). clone 안에서 `node dist/cli.js <명령>` 은 `npx mcp-launch-doctor <명령>` 과 결과가 같습니다. 예외는 하나, `stdout_pollution` 의 `wrap` 고칠 조각입니다. npx 로 실행하면 npx 캐시 폴더는 언제든 지워질 수 있으므로 조각이 `"command": "npx", "args": ["-y", "mcp-launch-doctor@0.2.1", "wrap", "--", …]`(방금 실행한 버전으로 고정)로 wrap 을 띄웁니다. clone 이나 전역 설치(`npm i -g mcp-launch-doctor`)로 실행하면 `node` 와 그 `dist/cli.js` 의 절대 경로를 씁니다.
+clone 에서 짧은 `mcp-launch-doctor` 명령을 PATH 에 두려면 `npm link` 를 한 번 실행하세요(또는 `node dist/cli.js` 를 직접 호출). clone 안에서 `node dist/cli.js <명령>` 은 `npx mcp-launch-doctor <명령>` 과 결과가 같습니다. 예외는 하나, `stdout_pollution` 의 `wrap` 고칠 조각입니다. npx 로 실행하면 npx 캐시 폴더는 언제든 지워질 수 있으므로 조각이 `"command": "npx", "args": ["-y", "mcp-launch-doctor@0.2.1", "wrap", "--", …]`(방금 실행한 버전으로 고정)로 wrap 을 띄웁니다. clone 이나 전역 설치(`npm i -g mcp-launch-doctor`)로 실행하면 `node` 실행 파일의 절대 경로와 그 `dist/cli.js` 의 절대 경로를 씁니다.
 
 아래 예와 스크린샷은 전역 설치한 것처럼 짧은 이름 `mcp-launch-doctor` 를 씁니다. 각 스크린샷은 바로 위 코드 블록의 명령을 그대로 실행한 화면입니다.
 
@@ -103,7 +103,7 @@ mcp-launch-doctor run --env all -- my-server
 ![shell 과 sdk 는 ok, gui 는 not_found 와 고칠 조각](docs/images/02-env-profiles.ko.png)
 *같은 서버를 세 환경에서 실행한 결과. 여기서 `my-server` 는 셸 PATH 에만 있는 폴더에 있습니다. 스크린샷의 홈 경로는 자리표시이며 실제로는 본인 경로가 보입니다. clone 에서 따라 하려면 `my-server` 대신 `fixtures/` 의 픽스처를 쓰세요. 예: `-- node fixtures/fault-server.mjs`.*
 
-`shell` 과 `sdk` 는 통과하고 `gui` 만 `not_found` 입니다. Dock 이나 메뉴에서 띄운 앱은 셸 프로필을 읽지 않아 PATH 가 짧기 때문입니다. 고칠 조각은 절대 경로를 쓰고 **인터프리터 폴더도 `env.PATH` 에 넣습니다.** 파일이 `#!/usr/bin/env node` 로 시작하면 `command` 만 바꿔서는 부족합니다 — 앱이 다시 `env: node: No such file or directory` 로 실패합니다. `run` 으로 받은 조각은 현재 폴더 기준 상대 경로 파일 인자(`args`)와 상대 경로 `command` 를 절대 경로로 바꿔 넣으므로 앱이 어느 폴더에서 띄워도 동작합니다. 다만 `wrap` 조각(시나리오 4)은 인터프리터용 `PATH` 항목을 넣지 않습니다. [CHANGELOG.md](CHANGELOG.md) 의 Known issues 를 참고하세요.
+`shell` 과 `sdk` 는 통과하고 `gui` 만 `not_found` 입니다. Dock 이나 메뉴에서 띄운 앱은 셸 프로필을 읽지 않아 PATH 가 짧기 때문입니다. 고칠 조각은 절대 경로를 쓰고 **인터프리터 폴더도 `env.PATH` 에 넣습니다.** 파일이 `#!/usr/bin/env node` 로 시작하면 `command` 만 바꿔서는 부족합니다 — 앱이 다시 `env: node: No such file or directory` 로 실패합니다. `run` 으로 받은 조각은 현재 폴더 기준 상대 경로 파일 인자(`args`)와 상대 경로 `command` 를 절대 경로로 바꿔 넣으므로 앱이 어느 폴더에서 띄워도 동작합니다. `wrap` 조각의 `env.PATH` 규칙은 따로 있습니다 — 시나리오 4 를 보세요.
 
 ### 시나리오 2 — stdout 에 뭔가 찍힘
 
@@ -139,6 +139,16 @@ FAULT=banner mcp-launch-doctor run -- mcp-launch-doctor wrap -- node fixtures/fa
 `wrap` 이 배너 두 줄을 stderr 로 옮겼으므로(`[wrap] diverted: Starting fixture server v0.1 ...`, `[wrap] diverted: [debug] initialized ok`) stdout 에는 JSON-RPC 만 나갔습니다.
 
 `wrap` 은 아직 고칠 수 없는 서버를 위한 임시 방편입니다. JSON-RPC 줄만 통과시키고(BOM 제거, CRLF→LF), 나머지는 stderr 로 보내며, 종료 코드와 stdin 끝을 전달합니다. 가장 좋은 해결은 서버가 로그를 stderr 로 쓰게 고치는 것입니다. `stdout_pollution` 판정이면 도구가 `wrap` 설정 조각을 대신 만들어 줍니다.
+
+`wrap` 조각에 `env.PATH` 가 들어가는지는 도구를 실행한 방법과 감싼 명령에 따라 다릅니다.
+
+| 도구 실행 방법 | 감싼 명령 | 조각의 `env.PATH` |
+|---|---|---|
+| clone 또는 전역 설치 | 셸 PATH 에서 찾은 경로 없는 이름(`node`, `my-server`) | 있음: 그 명령의 폴더, 인터프리터 폴더, gui 기본 PATH |
+| clone 또는 전역 설치 | 이미 경로이거나 셸 PATH 에서 못 찾음 | 없음 |
+| `npx` | 무엇이든 | 없음 |
+
+알려진 제한: 감싼 명령이 `#!/usr/bin/env node` 로 시작하는 절대 경로 스크립트면 조각에 `env.PATH` 가 없어서, GUI 앱이 `env: node: No such file or directory` 로 실패할 수 있습니다. 인터프리터 폴더(`dirname "$(command -v node)"` 의 출력)를 항목의 `env.PATH` 에 직접 넣고 `check --env gui` 로 확인하세요.
 
 ### 시나리오 5 — 서버 작성자의 CI
 

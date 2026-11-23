@@ -129,6 +129,7 @@ export const ko: Record<MessageKey, string> = {
   'fix.first_run_generic': '첫 실행 때 패키지를 내려받습니다. 미리 한 번 설치하고(예: npm install -g <패키지>) 설정이 설치된 명령을 가리키게 하세요.',
   'fix.timeout_generic': '서버가 {limitMs} ms 안에 답하지 않았습니다. stderr 꼬리를 보고 initialize 에 더 빨리 답하게 하거나(느린 준비는 핸드셰이크 뒤로), 클라이언트에 시작 제한 시간 설정이 있으면 늘리세요.',
   'fix.wrap': '가장 좋은 해결: 서버가 로그를 stderr 로 쓰게 고치기. 그 전까지는 명령 앞에 wrap 을 끼우세요 — JSON-RPC 줄만 stdout 으로 내보내고 나머지는 stderr 로 돌립니다:',
+  'fix.wrap_path': '가장 좋은 해결: 서버가 로그를 stderr 로 쓰게 고치기. 그 전까지는 명령 앞에 wrap 을 끼우세요 — JSON-RPC 줄만 stdout 으로 내보내고 나머지는 stderr 로 돌립니다. env 의 PATH 는 앱이 안쪽 명령을 찾게 해 줍니다. 기존 항목에 합치세요(다른 env 값은 그대로 두고, 이미 PATH 가 있으면 이 폴더들을 거기에 더하세요):',
   'fix.wrap_npx': '가장 좋은 해결: 서버가 로그를 stderr 로 쓰게 고치기. 그 전까지는 명령 앞에 wrap 을 끼우세요 — JSON-RPC 줄만 stdout 으로 내보내고 나머지는 stderr 로 돌립니다. 이 도구를 npx 로 실행해서 지금 위치는 언제든 지워질 수 있는 npx 캐시 폴더이므로, 버전({version})을 고정한 npx 로 wrap 을 띄웁니다. 고정된 파일 경로를 쓰려면 npm i -g mcp-launch-doctor 로 한 번 설치한 뒤 다시 검사하세요:',
   'fix.npx_yes': 'npx 가 설치 확인을 기다리지 않도록 -y 를 붙이세요:',
   'fix.version': '서버(또는 서버의 MCP SDK)를 업데이트해 {got} 대신 현재 프로토콜 버전으로 답하게 하세요.',

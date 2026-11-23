@@ -103,7 +103,15 @@ export function buildFixes(result: DiagnosisResult, spec: ServerSpec, ctx: FixCo
           // 클론·전역 설치: node 절대 경로 + 이 도구의 dist/cli.js (앱의 PATH 에 node 가 없어도 뜬다)
           // node 는 버전마다 바뀌는 실제 경로(Cellar 등)보다 셸 PATH 에 보이는 안정된 경로를 쓴다
           const command = stableNodePath(shellPath);
-          out.push(snippet(f.kind, spec, { command, args: [self.cliPath, 'wrap', '--', ...original] }, 'fix.wrap', { launcher: 'node' }));
+          // 안쪽 명령이 경로 없는 이름이면 앱의 PATH 에서도 찾히도록 env.PATH 를 넣는다(not_found 조각과 같은 방식). 폴더 목록만 넣는다
+          const patch: EntryPatch = { command, args: [self.cliPath, 'wrap', '--', ...original] };
+          const innerAbs = spec.command.includes('/') || spec.command.includes('\\') ? undefined : findForFix(spec.command, shellPath);
+          if (innerAbs) {
+            const interpreter = shebangInterpreter(innerAbs);
+            const interpreterAbs = interpreter ? findForFix(interpreter, shellPath) : undefined;
+            patch.env = { PATH: unique([interpreterAbs ? dirname(interpreterAbs) : undefined, dirname(innerAbs), ...gui]).join(delimiter) };
+          }
+          out.push(snippet(f.kind, spec, patch, patch.env ? 'fix.wrap_path' : 'fix.wrap', { launcher: 'node' }));
         }
         break;
       }

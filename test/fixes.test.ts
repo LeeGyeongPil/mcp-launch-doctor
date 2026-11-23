@@ -8,7 +8,7 @@ import { parse as parseToml } from 'smol-toml';
 import type { ServerSpec } from '#lib/config/parse';
 import type { DiagnosisResult, Finding } from '#lib/diagnose';
 import { buildFixes, fixArgs, fixCommand } from '#lib/fixes';
-import { cleanEnv, NODE_LIMIT_FLAG, REPO_ROOT, runCli } from './helpers.js';
+import { cleanEnv, FIXTURE, NODE_LIMIT_FLAG, REPO_ROOT, runCli } from './helpers.js';
 
 const spec = (args: string[], command = 'node', argBase: string | null = REPO_ROOT): ServerSpec => ({ name: 'x', command, args, env: {}, passThrough: [], source: 'command line', unresolved: [], ...(argBase ? { argBase } : {}) });
 
@@ -125,6 +125,52 @@ test('check --client codex on the sample config: the slow-start snippet restarts
     const again = await runCli(['check', '--client', 'codex', '--config', file, '--env', 'shell', '--json']);
     const verdict = (JSON.parse(again.stdout) as { results: Array<{ verdict: { kind: string } }> }).results[0]?.verdict.kind;
     assert.equal(verdict, 'ok');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('wrap snippet for a bare command carries env.PATH with its folder and the gui default path (JSON and Codex TOML)', () => {
+  const finding: Finding = { kind: 'stdout_pollution', severity: 'error', data: {} };
+  const nodeDir = join(process.execPath, '..');
+  const c = { baseEnv: { PATH: nodeDir }, platform: 'darwin', self: { cliPath: '/opt/mld/dist/cli.js', version: '0.2.1' } } as Parameters<typeof buildFixes>[2];
+  const json = buildFixes(result(finding), spec(['fixtures/fault-server.mjs']), c).find((f) => f.format === 'json')?.code ?? '';
+  const envPath = (JSON.parse(json) as { mcpServers: { x: { env: { PATH: string } } } }).mcpServers.x.env.PATH;
+  assert.ok(envPath.split(':').includes(nodeDir), envPath);
+  assert.ok(envPath.split(':').includes('/usr/bin'), envPath);
+  const codex = { ...spec(['fixtures/fault-server.mjs']), client: 'codex', cwd: '/work', env: { FOO: 'bar' }, passThrough: ['HOME'] } as ServerSpec;
+  const toml = parseToml(buildFixes(result(finding), codex, c).find((f) => f.format === 'toml')?.code ?? '') as { mcp_servers: { x: { cwd: string; env: Record<string, string>; env_vars: string[] } } };
+  assert.equal(toml.mcp_servers.x.cwd, '/work');
+  assert.equal(toml.mcp_servers.x.env.FOO, 'bar');
+  assert.ok(toml.mcp_servers.x.env.PATH?.includes(nodeDir));
+  assert.deepEqual(toml.mcp_servers.x.env_vars, ['HOME']);
+});
+
+test('wrap snippet from a stdout_pollution run starts under the gui profile; without env.PATH it does not', { skip: process.platform === 'win32' }, async () => {
+  const run = await runCli(['run', '--json', '--timeout', NODE_LIMIT_FLAG, '--', 'node', FIXTURE], { env: cleanEnv({ FAULT: 'banner' }) });
+  const doc = JSON.parse(run.stdout) as { results: Array<{ verdict: { kind: string }; fixes: Array<{ forKind: string; format: string; code?: string }> }> };
+  assert.equal(doc.results[0]?.verdict.kind, 'stdout_pollution');
+  const code = doc.results[0]?.fixes.find((f) => f.forKind === 'stdout_pollution' && f.format === 'json')?.code ?? '';
+  type Entry = { command: string; args: string[]; env?: Record<string, string> };
+  const snippet = JSON.parse(code) as { mcpServers: Record<string, Entry> };
+  const name = Object.keys(snippet.mcpServers)[0] ?? '';
+  const entry = snippet.mcpServers[name] as Entry;
+  assert.ok(entry.env?.PATH, 'the snippet carries env.PATH');
+  const dir = mkdtempSync(join(tmpdir(), 'mld-wrap-gui-'));
+  const verdictFor = async (env: Record<string, string>): Promise<{ kind: string; code?: string }> => {
+    const file = join(dir, `claude_desktop_config.${Object.keys(env).length}.json`);
+    writeFileSync(file, JSON.stringify({ mcpServers: { [name]: { ...entry, env } } }));
+    const res = await runCli(['check', '--client', 'claude-desktop', '--config', file, '--env', 'gui', '--json', '--timeout', NODE_LIMIT_FLAG], { env: cleanEnv() });
+    return (JSON.parse(res.stdout) as { results: Array<{ verdict: { kind: string } }> }).results[0]?.verdict ?? { kind: 'none' };
+  };
+  try {
+    // 조각 그대로(+ 서버 결함 FAULT): 앱의 기본 PATH 에서도 안쪽 node 를 찾아 wrap 이 뜬다
+    assert.equal((await verdictFor({ ...entry.env, FAULT: 'banner' })).kind, 'ok');
+    // env.PATH 를 뺀 대조: 이 컴퓨터의 node 가 앱 기본 PATH 에 없을 때만 실패해야 한다
+    const nodeDir = join(process.execPath, '..');
+    if (!['/usr/bin', '/bin', '/usr/sbin', '/sbin', '/opt/homebrew/bin', '/usr/local/bin'].includes(nodeDir)) {
+      assert.notEqual((await verdictFor({ FAULT: 'banner' })).kind, 'ok');
+    }
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

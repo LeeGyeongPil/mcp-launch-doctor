@@ -7,7 +7,8 @@ import { tmpdir } from 'node:os';
 import { parse as parseToml } from 'smol-toml';
 import type { ServerSpec } from '#lib/config/parse';
 import type { DiagnosisResult, Finding } from '#lib/diagnose';
-import { buildFixes, fixArgs, fixCommand } from '#lib/fixes';
+import { guiDefaultPath } from '#lib/envProfiles';
+import { buildFixes, findForFix, fixArgs, fixCommand } from '#lib/fixes';
 import { cleanEnv, FIXTURE, NODE_LIMIT_FLAG, REPO_ROOT, runCli } from './helpers.js';
 
 const spec = (args: string[], command = 'node', argBase: string | null = REPO_ROOT): ServerSpec => ({ name: 'x', command, args, env: {}, passThrough: [], source: 'command line', unresolved: [], ...(argBase ? { argBase } : {}) });
@@ -166,9 +167,9 @@ test('wrap snippet from a stdout_pollution run starts under the gui profile; wit
   try {
     // 조각 그대로(+ 서버 결함 FAULT): 앱의 기본 PATH 에서도 안쪽 node 를 찾아 wrap 이 뜬다
     assert.equal((await verdictFor({ ...entry.env, FAULT: 'banner' })).kind, 'ok');
-    // env.PATH 를 뺀 대조: 이 컴퓨터의 node 가 앱 기본 PATH 에 없을 때만 실패해야 한다
-    const nodeDir = join(process.execPath, '..');
-    if (!['/usr/bin', '/bin', '/usr/sbin', '/sbin', '/opt/homebrew/bin', '/usr/local/bin'].includes(nodeDir)) {
+    // env.PATH 를 뺀 대조: 앱 기본 PATH 에서 node 를 못 찾는 컴퓨터에서만 실패해야 한다
+    // (리눅스 CI 러너처럼 /usr/local/bin 에 다른 node 가 따로 있으면 그 node 로 wrap 이 떠서 ok 가 된다)
+    if (!findForFix('node', guiDefaultPath(process.platform) ?? '')) {
       assert.notEqual((await verdictFor({ FAULT: 'banner' })).kind, 'ok');
     }
   } finally {

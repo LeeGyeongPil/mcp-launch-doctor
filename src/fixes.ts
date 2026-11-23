@@ -7,7 +7,7 @@ import { stringify as toToml } from 'smol-toml';
 import type { ServerSpec } from './config/parse.js';
 import type { DiagnosisResult, VerdictKind } from './diagnose.js';
 import { guiDefaultPath } from './envProfiles.js';
-import { redactArgs, redactText } from './redact.js';
+import { redactArgs, redactEnv, redactText } from './redact.js';
 import { isTemporaryPath, SELF, TOOL_NAME, type SelfInfo } from './selfLaunch.js';
 
 
@@ -161,9 +161,15 @@ function snippet(kind: VerdictKind, spec: ServerSpec, patch: EntryPatch, note: s
   if (spec.client === 'vscode') entry.type = 'stdio';
   entry.command = patch.command ?? fixCommand(spec);
   entry.args = patch.args ?? fixArgs(spec);
-  if (patch.env) entry.env = patch.env;
+  if (spec.client !== 'codex' && patch.env) entry.env = patch.env;
 
   if (spec.client === 'codex') {
+    // Codex TOML: the table header is the same as the original, so the snippet replaces the whole entry.
+    // Keep the original cwd, env and env_vars, otherwise relative args and settings are lost.
+    if (spec.cwd) entry.cwd = redactText(spec.cwd);
+    const env = { ...redactEnv(spec.env), ...(patch.env ?? {}) };
+    if (spec.passThrough.length > 0) entry.env_vars = spec.passThrough;
+    if (Object.keys(env).length > 0) entry.env = env;
     if (patch.startup_timeout_sec !== undefined) entry.startup_timeout_sec = patch.startup_timeout_sec;
     return { forKind: kind, format: 'toml', code: toToml({ mcp_servers: { [spec.name]: entry } }), note, data };
   }

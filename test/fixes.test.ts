@@ -1,8 +1,10 @@
 // Regression: `run` fix snippets use absolute paths for relative file arguments.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { isAbsolute } from 'node:path';
-import { existsSync } from 'node:fs';
+import { isAbsolute, join } from 'node:path';
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { parse as parseToml } from 'smol-toml';
 import type { ServerSpec } from '#lib/config/parse';
 import type { DiagnosisResult, Finding } from '#lib/diagnose';
 import { buildFixes, fixArgs, fixCommand } from '#lib/fixes';
@@ -71,4 +73,59 @@ test('interpreter_missing snippet keeps command absolute for a relative script',
   const code = fixes.find((f) => f.format === 'json')?.code ?? '';
   const command = (JSON.parse(code) as { mcpServers: { x: { command: string } } }).mcpServers.x.command;
   assert.ok(isAbsolute(command) && existsSync(command), command);
+});
+
+// ---- Codex TOML snippets keep cwd / env / env_vars (the entry is replaced as a whole) ----
+
+const codexSpec = (extra: Partial<ServerSpec> = {}): ServerSpec => ({ client: 'codex', name: 'srv', command: 'node', args: ['s.mjs'], env: {}, passThrough: [], source: 'config.toml', unresolved: [], ...extra });
+const timeoutResult = () => result({ kind: 'startup_timeout', severity: 'error', cause: 'unknown', data: {} });
+
+test('Codex fix snippet keeps cwd, env and env_vars of the original entry', () => {
+  const s = codexSpec({ cwd: '/work/fixtures', env: { FAULT: 'slow', SLOW_MS: '2000' }, passThrough: ['MY_VAR'] });
+  const code = buildFixes(timeoutResult(), s, ctx()).find((f) => f.format === 'toml')?.code ?? '';
+  const parsed = parseToml(code) as { mcp_servers: Record<string, Record<string, unknown>> };
+  const entry = parsed.mcp_servers.srv;
+  assert.equal(entry?.cwd, '/work/fixtures');
+  assert.deepEqual({ ...(entry?.env as object) }, { FAULT: 'slow', SLOW_MS: '2000' });
+  assert.deepEqual(entry?.env_vars, ['MY_VAR']);
+  assert.equal(entry?.startup_timeout_sec, 180);
+  assert.match(code, /\[mcp_servers\.srv\.env\]/);
+});
+
+test('Codex fix snippet merges patch.env over the original env and masks secret names', () => {
+  const s = codexSpec({ env: { FAULT: 'slow', PATH: '/old', API_TOKEN: 'abc123' } });
+  const fixes = buildFixes(result({ kind: 'startup_timeout', severity: 'error', cause: 'buffering', data: {} }), { ...s, command: 'python3' }, ctx());
+  const entry = (parseToml(fixes.find((f) => f.format === 'toml')?.code ?? '') as { mcp_servers: Record<string, Record<string, Record<string, string>>> }).mcp_servers.srv;
+  assert.equal(entry?.env?.PYTHONUNBUFFERED, '1');
+  assert.equal(entry?.env?.FAULT, 'slow');
+  assert.equal(entry?.env?.PATH, '/old');
+  assert.equal(entry?.env?.API_TOKEN, '***');
+});
+
+test('Codex fix snippet without cwd or env stays minimal; JSON snippets are unchanged', () => {
+  const code = buildFixes(timeoutResult(), codexSpec(), ctx()).find((f) => f.format === 'toml')?.code ?? '';
+  assert.ok(!/cwd|env/.test(code));
+  const json = buildFixes(result({ kind: 'npx_prompt_risk', severity: 'warn', data: {} }), { ...codexSpec({ client: 'cursor', cwd: '/x', env: { A: 'b' } }), command: 'npx' }, ctx()).find((f) => f.format === 'json')?.code ?? '';
+  assert.ok(!json.includes('"cwd"') && !json.includes('"A"'));
+});
+
+test('check --client codex on the sample config: the slow-start snippet restarts the same server (cwd + env)', async () => {
+  const res = await runCli(['check', '--client', 'codex', '--config', 'fixtures/configs/codex.toml', '--server', 'slow-start', '--env', 'shell', '--json']);
+  const out = JSON.parse(res.stdout) as { results: Array<{ fixes: Array<{ format: string; code?: string }> }> };
+  const code = out.results[0]?.fixes.find((f) => f.format === 'toml')?.code ?? '';
+  assert.match(code, /cwd = ".*fixtures"/);
+  assert.match(code, /\[mcp_servers\.slow-start\.env\]/);
+  assert.match(code, /FAULT = "slow"/);
+  assert.match(code, /SLOW_MS = "2000"/);
+  // 조각만으로 만든 설정을 다시 진단하면 서버가 뜬다 (AC b)
+  const dir = mkdtempSync(join(tmpdir(), 'mld-fix-'));
+  try {
+    const file = join(dir, 'fixed.toml');
+    writeFileSync(file, code);
+    const again = await runCli(['check', '--client', 'codex', '--config', file, '--env', 'shell', '--json']);
+    const verdict = (JSON.parse(again.stdout) as { results: Array<{ verdict: { kind: string } }> }).results[0]?.verdict.kind;
+    assert.equal(verdict, 'ok');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
